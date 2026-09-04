@@ -28,6 +28,7 @@ const { handleAutotypingForMessage, showTypingAfterCommand } = require('../comma
 const { handleTagDetection } = require('../commands/antitag');
 const { answerTrivia, isTriviaActive, leaveTrivia } = require('../competition/engine');
 const { guess, isGuessActive } = require('../commands/hangman');
+const { afterSuccessfulCommand } = require('../systems/daily-reward');
 
 const channelInfo = settings.channelJid && settings.channelName ? {
     contextInfo: {
@@ -316,24 +317,20 @@ async function handleMessages(sock, messageUpdate, printLog) {
         if (registryCommand) {
             const registryToken = registryCommand.name;
             const registryArgs = resolvedRegistry.args;
+            const dispatchContext = {
+                senderId, senderIdAlt, isGroup, isOwner: senderIsOwnerOrSudo,
+                isSenderAdmin: false, isBotAdmin: false
+            };
             const handled = await commandRegistry.dispatch(
-                sock,
-                chatId,
-                message,
-                registryToken,
-                registryArgs,
-                {
-                    senderId,
-                    senderIdAlt,
-                    isGroup,
-                    isOwner: senderIsOwnerOrSudo,
-                    isSenderAdmin: false,
-                    isBotAdmin: false
-                }
+                sock, chatId, message, registryToken, registryArgs, dispatchContext
             );
             if (handled) {
                 await showTypingAfterCommand(sock, chatId);
                 await addCommandReaction(sock, message);
+                if (dispatchContext.commandSucceeded) {
+                    try { await afterSuccessfulCommand(sock, chatId, senderId, message, registryToken, require('../systems/economy').createEconomy()); }
+                    catch (rewardError) { console.error('[DAILY-REWARD]', rewardError?.message || rewardError); }
+                }
                 return;
             }
         }

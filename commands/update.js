@@ -252,7 +252,7 @@ async function updateCommand(sock, chatId, message, zipOverride) {
         await restartProcess(sock, chatId, message);
     } catch (err) {
         console.error('فشل التحديث:', err);
-        await sock.sendMessage(chatId, { text: `❌ فشل التحديث:\n${String(err.message || err)}` }, { quoted: message });
+        await sock.sendMessage(chatId, { text: '❌ تعذر تحديث ليو حاليًا. حاول مرة أخرى بعد قليل.' }, { quoted: message });
     }
 }
 

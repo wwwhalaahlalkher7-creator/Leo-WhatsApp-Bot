@@ -12,7 +12,7 @@ const { RETIRED_COMMANDS } = require('./lib/retired-commands');
 const root = __dirname;
 const commandsDir = path.join(root, 'commands');
 const helperModules = new Set([
-  'help', 'registry-init', 'legacy-registry', 'registry-phase2d',
+  'help', 'registry-init', 'registry-core', 'registry-advanced', 'legacy-registry', 'registry-phase2d',
   'index', 'tagall', 'tagnotadmin',
   'autotyping'
 ]);
@@ -46,8 +46,8 @@ function canonicalNamesForModule(moduleName) {
 
 const registryFiles = [
   path.join(root, 'commands', 'registry-init.js'),
-  path.join(root, 'commands', 'legacy-registry.js'),
-  path.join(root, 'commands', 'registry-phase2d.js'),
+  path.join(root, 'commands', 'registry-core.js'),
+  path.join(root, 'commands', 'registry-advanced.js'),
 ];
 const registryText = registryFiles.map(f => fs.readFileSync(f, 'utf8')).join('\n');
 const names = new Set([...registryText.matchAll(/name\s*:\s*['"]([^'"]+)['"]/g)].map(m => normalize(m[1])));

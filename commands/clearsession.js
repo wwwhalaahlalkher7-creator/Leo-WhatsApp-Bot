@@ -63,13 +63,13 @@ async function clearSessionCommand(sock, chatId, msg) {
                 filesCleared++;
             } catch (error) {
                 errors++;
-                errorDetails.push(`تعذر حذف ${file}: ${error.message}`);
+                errorDetails.push(`تعذر حذف ${file}.`);
             }
         }
 
         // Send completion message
-        const message = `✅ Session files cleared successfully!\n\n` +
-                       `📊 Statistics:\n` +
+        const message = `✅ تم تنظيف ملفات الجلسة بنجاح.\n\n` +
+                       `📊 الإحصائيات:\n` +
                        `• إجمالي الملفات المحذوفة: ${filesCleared}\n` +
                        `• ملفات مزامنة الحالة: ${appStateSyncCount}\n` +
                        `• ملفات مفاتيح التهيئة: ${preKeyCount}\n` +

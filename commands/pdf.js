@@ -108,7 +108,7 @@ async function handlePdfImageCollection(sock, chatId, message, senderId, text = 
       const result = await processMultipleFilePaths({ inputs: session.data.inputs, operation: 'image-to-pdf' });
       await sendResult(sock, chatId, message, result, 'image-to-pdf');
     } catch (e) {
-      await sock.sendMessage(chatId, { text: `❌ تعذر إنشاء PDF من الصور.\n${e.message || 'حدث خطأ غير متوقع.'}` }, { quoted: message });
+      await sock.sendMessage(chatId, { text: `❌ تعذر إنشاء ملف PDF من الصور.\nحاول مرة أخرى بعد قليل.` }, { quoted: message });
     } finally { clearSession(session, 'completed'); }
     return true;
   }
@@ -146,7 +146,7 @@ async function pdfCommand(sock, chatId, message, args, ctx = {}) {
         const result = await documents.analyze({ buffer, name: media.name || 'document.pdf', mime: media.mime || 'application/pdf', question: pdfRequestedTask, chatId, userId: ownerId });
         await sock.sendMessage(chatId, { text: `🧠 *تحليل المستند*\n\n${result.answer}` }, { quoted: message });
       } catch (e) {
-        await sock.sendMessage(chatId, { text: `❌ تعذر تحليل المستند.\n${e.message || 'حدث خطأ غير متوقع.'}` }, { quoted: message });
+        await sock.sendMessage(chatId, { text: `❌ تعذر تحليل المستند حاليًا.\nحاول مرة أخرى بعد قليل.` }, { quoted: message });
       }
       return;
     }
@@ -181,7 +181,7 @@ async function handlePdfReply(sock, chatId, message, senderId, text) {
       const result = await documents.analyze({ buffer, name: session.data.mediaName, mime: 'application/pdf', chatId, userId: senderId });
       await sock.sendMessage(chatId, { text: `🧠 *التحليل الذكي*\n\n${result.answer}` }, { quoted: message });
     } catch (e) {
-      await sock.sendMessage(chatId, { text: `❌ تعذر تحليل المستند.\n${e.message || 'حدث خطأ غير متوقع.'}` }, { quoted: message });
+      await sock.sendMessage(chatId, { text: `❌ تعذر تحليل المستند حاليًا.\nحاول مرة أخرى بعد قليل.` }, { quoted: message });
     } finally {
       clearSession(session, 'completed');
     }
@@ -195,7 +195,7 @@ async function handlePdfReply(sock, chatId, message, senderId, text) {
     const result = await processFilePath({ input: session.data.input, operation: op });
     await sendResult(sock, chatId, message, result, op);
   } catch (e) {
-    await sock.sendMessage(chatId, { text: `❌ تعذر تنفيذ العملية.\n${e.message || 'حدث خطأ غير متوقع.'}` }, { quoted: message });
+    await sock.sendMessage(chatId, { text: `❌ تعذر تنفيذ العملية حاليًا.\nحاول مرة أخرى بعد قليل.` }, { quoted: message });
   } finally {
     clearSession(session, 'completed');
   }

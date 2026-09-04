@@ -11,6 +11,8 @@ const history = require('./history');
 const bank = require('./question-bank.json');
 const competitionPrices = require('./economy/prices');
 
+const xp = require('../systems/xp');
+const subscriptions = require('../systems/subscriptions');
 const economy = economySystem.createEconomy();
 
 const sessions = new Map(); // exactly one active contest per group
@@ -173,6 +175,7 @@ async function creditUpTo(session, targetReward) {
   const delta = Math.max(0, Number(targetReward) - Number(session.paidReward || 0));
   if (!delta) return 0;
   await economy.reward(session.userId, delta, `game:reward:trivia:q${session.questionNumber}`);
+  await xp.add(session.userId, Math.max(5, Math.round(10 * Number(subscriptions.get(session.userId)?.details?.xpBoost || 1))), `game:progress:trivia:q${session.questionNumber}`);
   session.paidReward = Number(session.paidReward || 0) + delta;
   return delta;
 }

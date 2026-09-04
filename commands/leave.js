@@ -39,8 +39,7 @@ module.exports = async function leaveCommand(sock, chatId, message, requestedGro
     await sock.groupLeave(groupId);
   } catch (error) {
     return sock.sendMessage(chatId, {
-      text: `❌ تعذر مغادرة المجموعة.
-${error?.message || 'خطأ غير معروف'}`
+      text: '❌ تعذر مغادرة المجموعة حاليًا. حاول مرة أخرى بعد قليل.'
     }, { quoted: message });
   }
 

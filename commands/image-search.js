@@ -97,7 +97,7 @@ async function downloadImageCandidates(candidates) {
       if (!meta?.width || !meta?.height || !meta?.format) throw new Error('invalid image');
       return { ...candidate, buffer };
     } catch (error) {
-      failures.push(`${candidate.source}: ${error?.message || 'download failed'}`);
+      failures.push({ source: candidate.source, message: error?.message || 'download_failed' });
     }
   }
   const error = new Error('No downloadable image candidate');

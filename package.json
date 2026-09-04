@@ -1,6 +1,6 @@
 {
   "name": "leo-whatsapp-bot",
-  "version": "1.35.21",
+  "version": "1.37.1",
   "description": "Leo Bot — Arabic-first WhatsApp entertainment, assistant and AI bot",
   "main": "index.js",
   "scripts": {

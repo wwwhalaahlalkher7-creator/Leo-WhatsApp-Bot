@@ -88,7 +88,7 @@ async function handleAntideleteCommand(sock, chatId, message, match) {
 
     if (!match) {
         return sock.sendMessage(chatId, {
-            text: `*ANTIDELETE SETUP*\n\nCurrent Status: ${config.enabled ? '✅ Enabled' : '❌ Disabled'}\n\n*.antidelete on* - Enable\n*.antidelete off* - Disable`
+            text: `*إعداد الحذف التلقائي*\n\nالحالة الحالية: ${config.enabled ? '✅ مفعّل' : '❌ متوقف'}\n\n*.منع_الحذف تشغيل* — تفعيل\n*.منع_الحذف إيقاف* — إيقاف`
         }, {quoted: message});
     }
 
@@ -304,7 +304,7 @@ async function handleMessageRevocation(sock, revocationMessage) {
                 }
             } catch (err) {
                 await sock.sendMessage(ownerNumber, {
-                    text: `⚠️ تعذر إرسال الوسائط: ${err.message}`
+                    text: '⚠️ تعذر إرسال الوسائط المحفوظة حاليًا.'
                 });
             }
 

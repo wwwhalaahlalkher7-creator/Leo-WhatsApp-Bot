@@ -38,7 +38,7 @@ module.exports = {
     name: 'removebg',
     alias: ['rmbg', 'nobg'],
     category: 'general',
-    desc: 'Remove background from images',
+    desc: 'إزالة خلفية الصورة مع تحسين النتيجة تلقائيًا.',
     async exec(sock, message, args) {
         try {
             const chatId = message.key.remoteJid;
@@ -80,7 +80,7 @@ module.exports = {
                     if (r.status === 200 && r.data?.length) output = r.data;
                 } catch (e) { errors.push(`remove.bg: ${e.message}`); }
             }
-            if (!output) throw new Error(errors.join(' | ') || 'لم يتم الحصول على صورة معالجة');
+            if (!output) throw new Error('لم يتم الحصول على صورة معالجة');
             await response.media(sock, chatId, { image: output, caption: t('media.removebg.success') }, message);
 
         } catch (error) {
@@ -96,7 +96,7 @@ module.exports = {
                 errorMessage = '🔧 خادم معالجة الصور يواجه مشكلة حاليًا. حاول لاحقًا.';
             } else if (error.code === 'ECONNABORTED') {
                 errorMessage = '⏳ انتهت مهلة معالجة الصورة. حاول مرة أخرى.';
-            } else if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
+            } else if (String(error.message || '').includes('ENOTFOUND') || String(error.message || '').includes('ECONNREFUSED')) {
                 errorMessage = '🌐 تعذر الاتصال بخدمة معالجة الصور.';
             }
             

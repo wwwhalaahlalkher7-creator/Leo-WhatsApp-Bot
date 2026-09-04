@@ -5,7 +5,7 @@ const fetch = require('node-fetch');
 async function handleSsCommand(sock, chatId, message, match) {
     if (!match) {
         await sock.sendMessage(chatId, {
-            text: `*SCREENSHOT TOOL*\n\n*.ss <url>*\n*.ssweb <url>*\n*.screenshot <url>*\n\nTake a screenshot of any website\n\nExample:\n.ss https://google.com\n.ssweb https://google.com\n.screenshot https://google.com`,
+            text: `*أداة لقطة الشاشة*\n\n*.لقطة <الرابط>*\n*.ss <الرابط>*\n*.ssweb <الرابط>*\n*.screenshot <الرابط>*\n\n📸 تلتقط صورة لصفحة الموقع التي ترسل رابطها.\n\nمثال:\n.لقطة https://google.com`,
             quoted: message
         });
         return;

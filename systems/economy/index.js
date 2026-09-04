@@ -4,6 +4,8 @@ const config = require('./config');
 const reasons = require('./reasons');
 const currency = require('./currency');
 const { PRICES, REWARDS, EARNINGS, getPrice, getReward } = require('./prices');
+const xp = require('../xp');
+const subscriptions = require('../subscriptions');
 
 const DEFAULT_POLICY = Object.freeze({ mode: 'free', price: 0, reason: 'usage', refundOnFailure: false });
 
@@ -63,8 +65,11 @@ function createEconomy() {
     cost: getPrice,
     rewards: REWARDS,
     rewardAmount: getReward,
+    economySummary: () => ({ prices: PRICES, rewards: REWARDS, earnings: EARNINGS }),
     earnings: EARNINGS,
     config,
+    xp,
+    subscriptions,
   };
 }
 

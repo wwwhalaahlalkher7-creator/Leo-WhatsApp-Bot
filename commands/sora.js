@@ -28,8 +28,8 @@ async function soraCommand(sock, chatId, message, userId, economy = null) {
         if (!Buffer.isBuffer(result) && !(typeof result === 'string' && /^https?:\/\//i.test(result))) throw new Error('Video provider returned an unsupported result');
         const optimized = await optimizeVideo(result, { maxWidth: 640, crf: 32, preset: 'medium', audioBitrate: '64k' });
         try {
-          await sock.sendMessage(chatId, { video: { url: optimized }, mimetype: 'video/mp4', fileName: 'leo-sora.mp4', caption: t('ai.videoCaption', '', { prompt }) }, { quoted: message });
-          await sock.sendMessage(chatId, { text: `✅ تم إنشاء فيديو Sora بنجاح.\n💳 تم احتساب تكلفة الطلب: *${cost}*.` }, { quoted: message });
+          await sock.sendMessage(chatId, { video: { url: optimized }, mimetype: 'video/mp4', fileName: 'leo-video.mp4', caption: t('ai.videoCaption', '', { prompt }) }, { quoted: message });
+          await sock.sendMessage(chatId, { text: `✅ تم إنشاء الفيديو بنجاح.\n💳 تم احتساب تكلفة الطلب: *${cost}*.` }, { quoted: message });
         } finally { cleanup(optimized); }
       },
     });
@@ -37,7 +37,7 @@ async function soraCommand(sock, chatId, message, userId, economy = null) {
   } catch (error) {
     const refunded = Boolean(error?.__leoEconomyRefunded);
     console.error('[SORA]', error?.message || error);
-    await sock.sendMessage(chatId, { text: refunded ? '❌ فشل توليد فيديو Sora. تمت إعادة تكلفة الطلب إلى رصيدك.' : '❌ فشل توليد فيديو Sora حاليًا. لم يتم احتساب تكلفة.' }, { quoted: message });
+    await sock.sendMessage(chatId, { text: refunded ? '❌ تعذر إنشاء الفيديو. تمت إعادة تكلفة الطلب إلى رصيدك.' : '❌ تعذر إنشاء الفيديو حاليًا. لم يتم احتساب تكلفة.' }, { quoted: message });
   }
 }
 

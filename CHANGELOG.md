@@ -1,3 +1,93 @@
+# v1.37.1 — Premium UI & Purchase Flow
+
+- إعادة تصميم واجهة `.اشتراك` بواجهة Premium فاخرة وبطاقات Basic / Pro / Ultra.
+- إضافة بطاقة اشتراك حالية مصورة مع حالة العضوية ومدة الصلاحية والمزايا.
+- إضافة تدفق شراء واضح مع رقم طلب وإشعار تلقائي للمالك.
+- فصل سعر الاشتراك المالي عن رصيد النيـورون بوضوح.
+- الحفاظ على XP Boost وLuck Boost والمكافأة اليومية دون تغيير اقتصاد العمل أو المنافسة.
+
+# v1.37.0 — Leo Progress & Premium
+
+- نظام XP والمستويات وبطاقة المستوى.
+- ربط مستوى XP بحظ الوظائف دون تغيير اقتصاد العمل الأساسي.
+- مدير بنك للمالك مع إدارة وتحليل الأرصدة والاشتراكات.
+- نظام اشتراكات Basic / Pro / Ultra وبطاقات الاشتراك.
+- مكافأة دخول يومية للاشتراكات بتوقيت السودان.
+
+# v1.35.30 — Code Cleanup
+
+- تنظيف آمن للكود والملفات المساندة دون تغيير سلوك الأوامر.
+- إزالة تقارير Markdown التاريخية غير اللازمة من حزمة النشر.
+- الإبقاء على README وCHANGELOG وملفات التوثيق التشغيلي الأساسية.
+- الحفاظ على الاقتصاد، آلية المسابقة، التهدئة، واجهة `.ليو` ولوحة المراقبة كما هي.
+
+# v1.35.29 — Owner Monitoring Dashboard
+
+- توسعة `.مراقبة` إلى لوحة مالك عربية موحدة.
+- إضافة `.مراقبة النظام` لمعلومات التشغيل والذاكرة والمجموعات والنشاط.
+- تحسين `.مراقبة الأوامر` و`.مراقبة المزودات` باستخدام الإطار الموحد.
+- إزالة عرض أخطاء الخدمة الخام من لوحة المراقبة؛ تظهر التصنيفات فقط، مع بقاء التفاصيل في السجلات.
+- لا تغيير في الاقتصاد أو أسعار المسابقة أو cooldown أو واجهة `.ليو`.
+
+## v1.35.28 — Arabic Error & UX Polish
+
+- تحسين شامل لرسائل الأخطاء للمستخدمين باللغة العربية.
+- منع تسريب رسائل الاستثناءات والتفاصيل التقنية وأسماء مزودي الخدمات إلى الردود العادية.
+- تعريب نصوص إعداد لقطة الشاشة والحذف التلقائي.
+- تحديث أمثلة واجهة الذكاء الاصطناعي إلى `.ليو`.
+- الإبقاء على التفاصيل التقنية داخل السجلات فقط.
+- بدون تغيير أسعار الاقتصاد أو آليات المسابقة أو سلوك فترات الانتظار.
+
+
+## v1.35.27 — Leo AI Interface Polish
+
+- جعل `.ليو` الواجهة العامة الموحدة للذكاء الاصطناعي.
+- إزالة أسماء مزودي الذكاء القديمة من aliases العامة.
+- إبقاء اختيار المزود والـfallback داخليًا داخل طبقة AI.
+- الحفاظ على السياق والوسائط ومنع التكرار والتحقق الخارجي.
+- لم تتغير أسعار الاقتصاد أو ديناميكياته.
+
+## v1.35.26 — Cooldown / Wait UX Polish
+
+- تحسين رسائل الانتظار لتكون عربية وواضحة وتعرض المدة بصياغة مناسبة.
+- توحيد رسالة الانتظار في المسار العام للعمل وفي أمر `عمل`.
+- تعزيز نظام حجز الـ cooldown: عند فشل تنفيذ الأمر أو فشل مزود الخدمة يتم تحرير الحجز بدل معاقبة المستخدم بانتظار غير مستحق.
+- الحفاظ على مدة الانتظار وآلية الاقتصاد وديناميكيات النظام دون تغيير.
+
+## v1.35.25 — Economy Price Scale Alignment
+
+- Repriced general Leo economy using the competition economy as the value benchmark.
+- Updated service, AI, image, download and game prices only.
+- Updated job payout values and fixed game rewards to the same denomination scale.
+- Preserved all economy mechanics, cooldowns, weighting, bonus probability and transaction/refund lifecycle.
+- Competition prices and competition mechanics were not modified.
+
+## v1.35.24 — Economy Balance Polish
+
+- Activated a balanced central price table for AI, image, search, media, and games.
+- Standardized the user-facing currency name to **نيورون**.
+- Kept work free to start, with a one-hour cooldown and weighted job earnings.
+- Preserved competition-specific economy tables and existing refund/transaction semantics.
+- Added an economy balance audit documenting income/expense rules.
+
+## v1.35.23 — Unified Command Info Cards
+
+- Standardized command metadata with version, developer, description, method, note, category, usage, cost, cooldown, and permission defaults.
+- Upgraded `.مساعدة` command cards with a consistent information layout.
+- Added a dedicated `💡 ملاحظة` section to every command card.
+- Added a static help-metadata audit script to prevent incomplete cards.
+- Synced README and package versions.
+
+## v1.35.22 — Registry & Alias Cleanup
+
+- Renamed the active migration-era registry files to `registry-core.js` and `registry-advanced.js`.
+- Removed obsolete `legacy-registry.js` and `registry-phase2d.js` filenames from the active runtime.
+- Removed redundant canonical command names duplicated inside their own `aliases` arrays.
+- Preserved real compatibility aliases and all active command handlers.
+- Updated registry/help/retired-command audits for the cleaned architecture.
+- Added static registry preflight and alias-cleanup validation.
+- Confirmed retired commands remain protected from accidental resurrection.
+
 ## v1.35.21
 
 - Upgraded `@whiskeysockets/baileys` from `7.0.0-rc.9` to `7.0.0-rc.13`.

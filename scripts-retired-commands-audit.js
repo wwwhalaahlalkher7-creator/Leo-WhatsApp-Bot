@@ -6,8 +6,8 @@ const { RETIRED_COMMANDS } = require('./lib/retired-commands');
 
 const files = [
   path.join(__dirname, 'commands', 'registry-init.js'),
-  path.join(__dirname, 'commands', 'legacy-registry.js'),
-  path.join(__dirname, 'commands', 'registry-phase2d.js'),
+  path.join(__dirname, 'commands', 'registry-core.js'),
+  path.join(__dirname, 'commands', 'registry-advanced.js'),
 ];
 const text = files.map(f => fs.readFileSync(f, 'utf8')).join('\n');
 const found = [];

@@ -27,6 +27,7 @@ const settings = {
   language: 'ar',
   copyright: "Leonardo's Projects",
   aiPersona: 'smart-professional-funny',
+  aiInterface: 'ليو',
   aiDefaultLanguage: 'ar',
 };
 

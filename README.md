@@ -1,6 +1,6 @@
 ## Current release
 
-- Version: `1.35.7`
+- Version: `v1.35.26`
 - Version source of truth: `package.json`
 - Configuration template: `.env.example`
 - Runtime secrets: `.env` only

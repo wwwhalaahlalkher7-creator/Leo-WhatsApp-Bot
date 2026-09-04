@@ -6,6 +6,8 @@ const economySystem = require('../systems/economy');
 const currency = require('../systems/economy/currency');
 const economyMessages = require('../systems/economy/messages');
 const interaction = require('../systems/interaction');
+const xp = require('../systems/xp');
+const subscriptions = require('../systems/subscriptions');
 const economy = economySystem.createEconomy();
 const COST = economy.cost('tictactoe');
 const REWARD = economy.rewardAmount('tictactoe');
@@ -180,6 +182,7 @@ async function handleTicTacToeMove(sock, chatId, senderId, text, message = null)
             });
             
             const rewardBalance = await economy.reward(winner, REWARD, 'game:reward:tictactoe');
+                await xp.add(winner, Math.max(15, Math.round(25 * Number(subscriptions.get(winner)?.details?.xpBoost || 1))), 'game:win:tictactoe');
             await sock.sendMessage(chatId, { text: economyMessages.reward(REWARD, rewardBalance) });
             delete games[room.id];
             return;
@@ -234,6 +237,7 @@ ${!winner && !isTie ? '• اكتب رقمًا من 1 إلى 9 للحركة\n•
         if (winner || isTie) {
             if (winner) {
                 const rewardBalance = await economy.reward(winner, REWARD, 'game:reward:tictactoe');
+            await xp.add(winner, Math.max(15, Math.round(25 * Number(subscriptions.get(winner)?.details?.xpBoost || 1))), 'game:win:tictactoe');
                 await sock.sendMessage(room.x, { text: economyMessages.reward(REWARD, rewardBalance), mentions: [winner] });
             } else {
                 await economy.reward(room.game.playerX, COST, 'game:refund:tictactoe');

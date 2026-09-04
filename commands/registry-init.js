@@ -13,9 +13,9 @@ registry.register({ name:'image-ai', aliases:['vision'], localizedAliases:['حل
 registry.register({ name:'logo', aliases:[], localizedAliases:['لوجو','شعار'], localizedName:'لوجو', category:'image', usage:'.لوجو <النمط> <النص>', descriptionKey:'registry.logo.description', methodKey:'registry.logo.method', execute:logo });
 registry.register({ name:'pdf', aliases:[], localizedAliases:['مستند'], localizedName:'مستند', category:'utility', categoryKey:'utility', interaction:'media', usage:'.pdf', description:'تحويل ومعالجة ملفات PDF وWord وPowerPoint وExcel والصور.', method:'أرسل الملف مع `.pdf` أو رد بالأمر على الملف.', version:'1.35.6', developer:'Leonardo', execute:pdfCommand });
 // Phase 2: migrate existing main.js-routed commands into the same registry.
-require('./legacy-registry');
+require('./registry-core');
 
 module.exports = registry;
 
-require('./registry-phase2d');
+require('./registry-advanced');
 

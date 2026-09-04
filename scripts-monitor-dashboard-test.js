@@ -1,0 +1,15 @@
+'use strict';
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const monitor = fs.readFileSync(path.join(__dirname, 'commands/monitor.js'), 'utf8');
+const registry = fs.readFileSync(path.join(__dirname, 'commands/registry-advanced.js'), 'utf8');
+assert.ok(monitor.includes("createLeoFrame('لوحة مراقبة ليو'"));
+assert.ok(monitor.includes(''));
+assert.ok(monitor.includes('getGroupStats()'));
+assert.ok(monitor.includes('process.memoryUsage()'));
+assert.ok(monitor.includes('process.uptime()'));
+assert.ok(!monitor.includes('item.lastError) lines.push'));
+assert.ok(!registry.includes('حالة Providers وآخر استعمال'));
+assert.ok(registry.includes('نشاط الأوامر وحالة الخدمات'));
+console.log('Monitoring dashboard tests: PASS');

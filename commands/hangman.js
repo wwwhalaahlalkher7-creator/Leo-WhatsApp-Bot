@@ -2,6 +2,8 @@ const economySystem = require('../systems/economy');
 const currency = require('../systems/economy/currency');
 const economyMessages = require('../systems/economy/messages');
 const interaction = require('../systems/interaction');
+const xp = require('../systems/xp');
+const subscriptions = require('../systems/subscriptions');
 const economy = economySystem.createEconomy();
 const COST = economy.cost('hangman');
 const REWARD = economy.rewardAmount('hangman');
@@ -174,6 +176,7 @@ async function guess(sock, chatId, input, userId, message) {
     if (value === game.word) {
       games.delete(chatId);
       const balance = await economy.reward(userId, REWARD, 'game:reward:guess');
+      await xp.add(userId, Math.max(15, Math.round(25 * Number(subscriptions.get(userId)?.details?.xpBoost || 1))), 'game:win:guess');
       return sock.sendMessage(chatId, { text: `🎉 *مبروك! تخمين صحيح.*\n\n🔤 الكلمة: *${game.word}*\n🏆 الجائزة: *+${currency.amount(REWARD)}*\n💰 رصيدك الآن: *${currency.balance(balance)}*` }, { quoted: message });
     }
     game.wrong += 1;
@@ -185,6 +188,7 @@ async function guess(sock, chatId, input, userId, message) {
       if (!maskWord(game.word, game.guessed).includes('＿')) {
         games.delete(chatId);
         const balance = await economy.reward(userId, REWARD, 'game:reward:guess');
+      await xp.add(userId, Math.max(15, Math.round(25 * Number(subscriptions.get(userId)?.details?.xpBoost || 1))), 'game:win:guess');
         return sock.sendMessage(chatId, { text: `🎉 *مبروك! خمنت الكلمة كاملة.*\n\n🔤 الكلمة: *${game.word}*\n🏆 الجائزة: *+${currency.amount(REWARD)}*\n💰 رصيدك الآن: *${currency.balance(balance)}*` }, { quoted: message });
       }
       const sent = await sock.sendMessage(chatId, { text: `${gameText(game)}\n\n✅ تخمين صحيح!` }, { quoted: message });

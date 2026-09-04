@@ -5,14 +5,14 @@ const path = require('path');
 const root = __dirname;
 const files = [
   path.join(root, 'commands', 'registry-init.js'),
-  path.join(root, 'commands', 'legacy-registry.js'),
-  path.join(root, 'commands', 'registry-phase2d.js'),
+  path.join(root, 'commands', 'registry-core.js'),
+  path.join(root, 'commands', 'registry-advanced.js'),
 ];
 const text = files.map(f => fs.readFileSync(f, 'utf8')).join('\n');
 const errors = [];
 
 if (/const\s+helpCommandP4\s*=\s*require\(['"]\.\/help['"]\)/.test(fs.readFileSync(files[1], 'utf8'))) {
-  errors.push('help.js is eagerly required from legacy-registry.js; this recreates the registry/help circular dependency.');
+  errors.push('help.js is eagerly required from registry-core.js; this recreates the registry/help circular dependency.');
 }
 if (!/const\s+helpCommandP4\s*=\s*\(\.\.\.args\)\s*=>\s*require\(['"]\.\/help['"]\)\(\.\.\.args\)/.test(fs.readFileSync(files[1], 'utf8'))) {
   errors.push('Help registration is not using the lazy loader expected by the registry architecture.');
