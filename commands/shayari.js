@@ -15,7 +15,6 @@ async function shayariCommand(sock, chatId, message) {
 
         const buttons = [
             { buttonId: '.shayari', buttonText: { displayText: 'شعر 🪄' }, type: 1 },
-            { buttonId: '.roseday', buttonText: { displayText: '🌹 يوم الورد' }, type: 1 }
         ];
 
         await sock.sendMessage(chatId, { 

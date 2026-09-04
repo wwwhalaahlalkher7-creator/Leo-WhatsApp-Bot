@@ -1,3 +1,11 @@
+# v1.37.2 — Command Cleanup
+
+- إزالة كاملة لأمر Emoji Mix واعتماد Tenor المرتبط به.
+- إزالة بقايا أوامر Goodnight / Rose Day / Flirt المتقاعدة.
+- تنظيف زر Rose Day القديم من أمر الشعر.
+- تنظيف رسائل الترجمة والمتغيرات البيئية الخاصة بالأوامر المحذوفة.
+- تدقيق Registry وRetired Commands وعدم وجود أوامر فعالة غير مسجلة أو aliases متعارضة.
+
 # v1.37.1 — Premium UI & Purchase Flow
 
 - إعادة تصميم واجهة `.اشتراك` بواجهة Premium فاخرة وبطاقات Basic / Pro / Ultra.
