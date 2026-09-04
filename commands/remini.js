@@ -53,48 +53,89 @@ async function reminiCommand(sock, chatId, message, args) {
 
         await assertPublicHttpUrl(imageUrl);
 
-        // Try the configured Remini provider first; if unavailable, perform a reliable
-        // local enhancement so the command never dies with a raw English server error.
-        const apiUrl = `https://api.princetechn.com/api/tools/remini?apikey=${encodeURIComponent(process.env.PRINCE_API_KEY || '')}&url=${encodeURIComponent(imageUrl)}`;
-        let providerResponse = null;
-        try {
-            providerResponse = await axios.get(apiUrl, { timeout: 60000, headers: { 'User-Agent': 'Mozilla/5.0' } });
-        } catch (providerError) {
-            console.warn('[REMINI] Provider unavailable, using local enhancement:', providerError?.message || providerError);
-            providerResponse = null;
-        }
+        // PrinceTechn is the primary third-party enhancer when a key is configured.
+        // The local Sharp path is a resilient fallback for cases where the provider is
+        // unavailable or the deployment intentionally runs without a paid key.
+        const princeKey = String(process.env.PRINCE_API_KEY || '').trim();
+        let providerError = null;
 
-        if (providerResponse?.data && providerResponse.data.success && providerResponse.data.result) {
-            const result = providerResponse.data.result;
-            
-            if (result.image_url) {
-                await assertPublicHttpUrl(result.image_url);
-                // Download the enhanced image
-                const imageResponse = await axios.get(result.image_url, {
-                    responseType: 'arraybuffer',
-                    timeout: 30000
+        if (princeKey) {
+            const apiUrl = `https://api.princetechn.com/api/tools/remini?apikey=${encodeURIComponent(princeKey)}&url=${encodeURIComponent(imageUrl)}`;
+            try {
+                const providerResponse = await axios.get(apiUrl, {
+                    timeout: 60000,
+                    headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' },
                 });
-                
-                if (imageResponse.status === 200 && imageResponse.data) {
-                    // Send the enhanced image
-                    await sock.sendMessage(chatId, {
-                        image: imageResponse.data,
-                        caption: t('media.remini.success')
-                    }, { quoted: message });
-                } else {
-                    throw new Error('Failed to download enhanced image');
+
+                const result = providerResponse?.data?.result;
+                const enhancedUrl = result?.image_url;
+                if (providerResponse?.data?.success && enhancedUrl) {
+                    await assertPublicHttpUrl(enhancedUrl);
+                    const imageResponse = await axios.get(enhancedUrl, {
+                        responseType: 'arraybuffer',
+                        timeout: 45000,
+                        maxContentLength: 25 * 1024 * 1024,
+                        headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'image/*' },
+                    });
+
+                    const contentType = String(imageResponse.headers?.['content-type'] || '').toLowerCase();
+                    if (imageResponse.status === 200 && imageResponse.data && contentType.startsWith('image/')) {
+                        const verified = await sharp(Buffer.from(imageResponse.data)).metadata();
+                        if (!verified.width || !verified.height) throw new Error('Provider returned an invalid image');
+
+                        await sock.sendMessage(chatId, {
+                            image: Buffer.from(imageResponse.data),
+                            caption: t('media.remini.success'),
+                        }, { quoted: message });
+                        return;
+                    }
+                    throw new Error('Provider returned an invalid image response');
                 }
-            } else {
-                throw new Error(result.message || 'Failed to enhance image');
+                throw new Error(result?.message || 'Enhancement provider returned no result');
+            } catch (error) {
+                providerError = error;
+                console.warn('[REMINI] Primary enhancer unavailable, using local fallback:', error?.message || error);
             }
         } else {
-            const sourceResponse = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 30000, headers: { 'User-Agent': 'Mozilla/5.0' } });
-            const enhanced = await sharp(Buffer.from(sourceResponse.data))
-                .resize({ width: 1800, height: 1800, fit: 'inside', withoutEnlargement: false })
-                .sharpen({ sigma: 1.2, m1: 1.5, m2: 2.0 })
-                .jpeg({ quality: 92 })
+            console.warn('[REMINI] PRINCE_API_KEY is not configured; using local fallback.');
+        }
+
+        // Robust local fallback: decode/rotate all common WhatsApp formats, normalize
+        // oversized images, sharpen without introducing extreme artifacts, and emit a
+        // widely compatible JPEG. This is enhancement/resampling, not AI super-resolution.
+        try {
+            const sourceResponse = await axios.get(imageUrl, {
+                responseType: 'arraybuffer',
+                timeout: 30000,
+                maxContentLength: 25 * 1024 * 1024,
+                headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'image/*' },
+            });
+            const source = Buffer.from(sourceResponse.data);
+            const metadata = await sharp(source).metadata();
+            if (!metadata.width || !metadata.height) throw new Error('Invalid source image');
+
+            const enhanced = await sharp(source, { failOn: 'none' })
+                .rotate()
+                .resize({ width: 2000, height: 2000, fit: 'inside', withoutEnlargement: false, kernel: sharp.kernel.lanczos3 })
+                .sharpen({ sigma: 1.1, m1: 1.3, m2: 2.0 })
+                .flatten({ background: '#ffffff' })
+                .jpeg({ quality: 93, chromaSubsampling: '4:4:4', mozjpeg: true })
                 .toBuffer();
-            await response.media(sock, chatId, { image: enhanced, caption: '✨ تم تحسين الصورة محليًا بنجاح.' }, message);
+
+            const verified = await sharp(enhanced).metadata();
+            if (!verified.width || !verified.height) throw new Error('Local enhancement produced an invalid image');
+
+            await response.media(sock, chatId, {
+                image: enhanced,
+                caption: providerError
+                    ? '✨ *تم تحسين الصورة بنجاح.*'
+                    : '✨ *تم تحسين الصورة.*',
+            }, message);
+        } catch (localError) {
+            if (providerError) {
+                localError.cause = providerError;
+            }
+            throw localError;
         }
 
     } catch (error) {

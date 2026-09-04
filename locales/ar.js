@@ -300,7 +300,7 @@ module.exports = {
     gif: { termRequired: '📌 اكتب كلمة للبحث عن GIF.', notFound: '❌ ما لقيت GIF مناسب لبحثك.', failed: '❌ تعذر جلب GIF. جرّب مرة ثانية لاحقًا.' },
     attp: { textRequired: '📌 اكتب النص بعد أمر `.نص ملصق`.', failed: '❌ تعذر إنشاء الملصق.' },
     blur: { replyImage: '❌ رد على صورة.', usage: '❌ رد على صورة أو أرسل صورة مع `.تمويه`.', success: '✅ تم تشويش الصورة بنجاح.', failed: '❌ تعذر تشويش الصورة. جرّب لاحقًا.' },
-    remini: { invalidUrl: '❌ الرابط غير صالح.\n\nالاستخدام: `.remini https://example.com/image.jpg`', usage: '📸 *تحسين الصور بالذكاء الاصطناعي*\n\nالاستخدام:\n• `.remini <رابط_الصورة>`\n• رد على صورة باستخدام `.remini`\n• أرسل صورة مع `.remini`', success: '✨ *تم تحسين الصورة بنجاح!*\n\nLeonardo\'s Projects' },
+    remini: { invalidUrl: '❌ الرابط غير صالح.\n\nالاستخدام: `.remini https://example.com/image.jpg`', usage: '📸 *تحسين الصور*\n\nالاستخدام:\n• `.تحسين <رابط_الصورة>`\n• رد على صورة باستخدام `.تحسين`\n• أرسل صورة مع `.تحسين`', success: '✨ *تم تحسين الصورة بنجاح!*' },
     removebg: { invalidUrl: '❌ الرابط غير صالح.\n\nالاستخدام: `.removebg https://example.com/image.jpg`', usage: '📸 *إزالة خلفية الصورة*\n\nالاستخدام:\n• `.removebg <رابط_الصورة>`\n• رد على صورة باستخدام `.removebg`\n• أرسل صورة مع `.removebg`', success: '✨ *تمت إزالة الخلفية بنجاح!*\n\nLeonardo\'s Projects' },
     setpp: { replyImage: '⚠️ رد على صورة باستخدام `.صورة البروفايل`.', imageRequired: '❌ الرسالة التي رددت عليها يجب أن تحتوي على صورة.', success: '✅ تم تحديث صورة بروفايل البوت بنجاح.', failed: '❌ تعذر تحديث صورة بروفايل البوت.' },
     simage: { usage: '📌 رد على ملصق باستخدام `.صورة الملصق` لتحويله إلى صورة.', success: '🖼️ هذه هي الصورة بعد التحويل.', failed: '❌ حصل خطأ أثناء تحويل الملصق إلى صورة.' },
