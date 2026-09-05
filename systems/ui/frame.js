@@ -63,17 +63,16 @@ function normalizeTitle(title, width) {
 }
 
 function createLeoFrame(title, content = '', options = {}) {
-  let width = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Number(options.width) || MAX_WIDTH));
-  let safeTitle = normalizeTitle(title, width);
+  // Bottom border is fixed at 20 bars. The top border is sized from the
+  // title itself, so short titles stay compact instead of stretching to 38.
+  const safeTitle = String(title || '').trim() || 'LeoBot';
   const titleWidth = displayWidth(safeTitle);
-  const topFixed = titleWidth + 2; // 〔title〕
-  const barTotal = Math.max(2, width - 2 - topFixed);
-  const leftBars = Math.floor(barTotal / 2);
-  const rightBars = barTotal - leftBars;
-  const actualWidth = 2 + leftBars + topFixed + rightBars;
+  const availableBars = Math.max(0, 20 - titleWidth - 4);
+  const leftBars = Math.max(2, Math.floor(availableBars / 2));
+  const rightBars = Math.max(2, availableBars - leftBars);
   const top = `╮${'━'.repeat(leftBars)}〔 ${safeTitle} 〕${'━'.repeat(rightBars)}╭`;
-  const bottom = `╯${'━'.repeat(actualWidth - 2)}╰`;
-  const innerWidth = Math.max(8, actualWidth - 2);
+  const bottom = `╯${'━'.repeat(20)}╰`;
+  const innerWidth = Math.max(8, 20);
   const lines = String(content || '').split(/\r?\n/).flatMap(line => wrapLine(line, innerWidth));
   const body = lines.map(line => `┃${line ? ` ${line}` : ''}`).join('\n');
   return `${top}\n${body}\n${bottom}`;

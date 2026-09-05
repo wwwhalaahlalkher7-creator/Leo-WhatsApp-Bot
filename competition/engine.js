@@ -5,6 +5,7 @@ const interaction = require('../systems/interaction');
 const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
+const os = require('os');
 const economySystem = require('../systems/economy');
 const config = require('./config');
 const history = require('./history');
@@ -55,6 +56,97 @@ function money(n) { return currency.amount(n); }
 function durationText(ms) {
   const minutes = Math.max(1, Math.ceil(ms / 60000));
   return `${minutes} دقيقة`;
+}
+
+function escapeXml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function prizeChequeSvg(session, awarded, result) {
+  const player = escapeXml(session.playerName || 'المتسابق');
+  const amount = Number(awarded || 0).toLocaleString('en-US');
+  const date = new Date().toLocaleDateString('ar-EG');
+  const chequeNo = escapeXml(`LEO-${String(session.contestId || Date.now()).replace(/[^A-Za-z0-9-]/g, '').slice(-14).toUpperCase()}`);
+  const stage = `${session.stage || 1}/4`;
+  const resultText = escapeXml(result === 'فوز كامل' ? 'إتمام المسابقة' : result === 'مغادرة اختيارية' ? 'مغادرة اختيارية' : result || 'جائزة المسابقة');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="820" viewBox="0 0 1400 820">
+    <defs>
+      <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fffdf6"/><stop offset="1" stop-color="#f4eddc"/></linearGradient>
+      <linearGradient id="navy" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#081a33"/><stop offset="1" stop-color="#17365e"/></linearGradient>
+      <pattern id="wm" width="220" height="130" patternUnits="userSpaceOnUse" patternTransform="rotate(-20)"><text x="10" y="70" font-family="DejaVu Sans" font-size="34" font-weight="800" fill="#c5a14b" opacity="0.08">LEO</text></pattern>
+    </defs>
+    <rect x="8" y="8" width="1384" height="804" rx="38" fill="url(#paper)" stroke="#b88a17" stroke-width="10"/>
+    <rect x="25" y="25" width="1350" height="770" rx="28" fill="none" stroke="#9aa8b8" stroke-width="2"/>
+    <rect x="42" y="42" width="1316" height="736" rx="20" fill="url(#wm)"/>
+    <rect x="55" y="52" width="1290" height="115" rx="20" fill="url(#navy)"/>
+    <text x="88" y="104" font-family="Georgia,serif" font-size="48" font-weight="800" fill="#f3d36b">LEO</text>
+    <text x="88" y="139" font-family="Arial,sans-serif" font-size="19" letter-spacing="7" fill="#ffffff">PRIZE BANK</text>
+    <text x="1308" y="105" text-anchor="end" font-family="DejaVu Sans,Arial,sans-serif" font-size="43" font-weight="800" fill="#f3d36b">شيك الجائزة</text>
+    <text x="1308" y="139" text-anchor="end" font-family="DejaVu Sans,Arial,sans-serif" font-size="20" fill="#ffffff">المسابقة الكبرى • Leo</text>
+
+    <text x="80" y="220" font-family="DejaVu Sans,Arial,sans-serif" font-size="26" fill="#30445e">التاريخ: ${escapeXml(date)}</text>
+    <text x="1320" y="220" text-anchor="end" font-family="DejaVu Sans,Arial,sans-serif" font-size="26" fill="#30445e">رقم الشيك: ${chequeNo}</text>
+
+    <text x="80" y="282" font-family="DejaVu Sans,Arial,sans-serif" font-size="25" fill="#6c7890">يُدفع إلى</text>
+    <text x="240" y="286" font-family="DejaVu Sans,Arial,sans-serif" font-size="52" font-weight="900" letter-spacing="1.5" fill="#102442">${player}</text>
+    <line x1="240" y1="305" x2="1010" y2="305" stroke="#17365e" stroke-width="2"/>
+
+    <rect x="1030" y="245" width="285" height="125" rx="18" fill="#fffdf7" stroke="#b88a17" stroke-width="4"/>
+    <text x="1172" y="278" text-anchor="middle" font-family="DejaVu Sans,Arial,sans-serif" font-size="21" fill="#65728a">القيمة المعتمدة</text>
+    <text x="1172" y="333" text-anchor="middle" font-family="DejaVu Sans,Arial,sans-serif" font-size="54" font-weight="900" fill="#102442">${amount}</text>
+    <text x="1172" y="359" text-anchor="middle" font-family="DejaVu Sans,Arial,sans-serif" font-size="19" fill="#65728a">رصيد</text>
+
+    <line x1="80" y1="405" x2="1315" y2="405" stroke="#c5a14b" stroke-width="3"/>
+    <text x="80" y="448" font-family="DejaVu Sans,Arial,sans-serif" font-size="28" fill="#6c7890">نوع الاستحقاق</text>
+    <text x="310" y="448" font-family="DejaVu Sans,Arial,sans-serif" font-size="31" font-weight="800" fill="#102442">جائزة المسابقة الكبرى • المرحلة ${stage}</text>
+    <text x="310" y="486" font-family="DejaVu Sans,Arial,sans-serif" font-size="25" fill="#30445e">الحالة: ${resultText}</text>
+
+    <rect x="80" y="520" width="770" height="120" rx="18" fill="#fbf6e9" stroke="#d0b56c" stroke-width="2"/>
+    <text x="110" y="557" font-family="DejaVu Sans,Arial,sans-serif" font-size="23" fill="#65728a">المبلغ كتابةً</text>
+    <text x="110" y="602" font-family="DejaVu Sans,Arial,sans-serif" font-size="42" font-weight="900" letter-spacing="1.2" fill="#102442">${amount} رصيد فقط</text>
+
+    <g transform="translate(930 500)">
+      <circle cx="125" cy="72" r="66" fill="none" stroke="#c5a14b" stroke-width="5"/>
+      <circle cx="125" cy="72" r="55" fill="none" stroke="#c5a14b" stroke-width="1"/>
+      <text x="125" y="68" text-anchor="middle" font-family="Georgia,serif" font-size="29" font-weight="800" fill="#b88a17">LEO</text>
+      <text x="125" y="92" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" letter-spacing="2" fill="#b88a17">VERIFIED</text>
+      <text x="125" y="145" text-anchor="middle" font-family="DejaVu Sans,Arial,sans-serif" font-size="19" fill="#65728a">ختم الإدارة</text>
+    </g>
+
+    <line x1="930" y1="650" x2="1300" y2="650" stroke="#17365e" stroke-width="2"/>
+    <text x="1115" y="632" text-anchor="middle" font-family="cursive" font-size="43" font-style="italic" fill="#102442">Leonardo</text>
+    <text x="1115" y="683" text-anchor="middle" font-family="DejaVu Sans,Arial,sans-serif" font-size="21" fill="#65728a">توقيع الإدارة • Leonardo</text>
+
+    <text x="80" y="720" font-family="DejaVu Sans,Arial,sans-serif" font-size="18" fill="#738198">هذا الشيك إثبات تذكاري للجائزة المعتمدة داخل نظام Leo، ولا يمثل وسيلة دفع خارج النظام.</text>
+    <text x="1315" y="720" text-anchor="end" font-family="DejaVu Sans,Arial,sans-serif" font-size="20" font-weight="800" fill="#30445e">LEO • المسابقة الكبرى</text>
+  </svg>`;
+}
+
+async function makePrizeCheque(session, awarded, result) {
+  if (!(Number(awarded) > 0)) return null;
+  const svg = prizeChequeSvg(session, awarded, result);
+  const out = await sharp(Buffer.from(svg))
+    .png()
+    .toBuffer();
+  return out;
+}
+
+async function sendPrizeCheque(sock, session, awarded, result) {
+  if (!(Number(awarded) > 0)) return;
+  try {
+    const cheque = await makePrizeCheque(session, awarded, result);
+    await sock.sendMessage(session.chatId, {
+      image: cheque,
+      caption: `🧾 *شيك جائزة Leo*\n\n👤 المتسابق: *${session.playerName || 'المتسابق'}*\n💰 المبلغ المعتمد: *${Number(awarded).toLocaleString('en-US')} ${currency.name}*\n✍️ التوقيع: *Leonardo*`
+    });
+  } catch (error) {
+    console.error('[competition] prize cheque failed', error);
+  }
 }
 function getQuotedId(message) { return interaction.quotedId(message); }
 function isReplyTo(message, messageId) { return interaction.isReplyTo(message, messageId); }
@@ -222,6 +314,7 @@ function ensurePlayerReply(session, userId, altUserId, message) {
 async function sendQuestion(sock, session, quotedMessage, extra = '') {
   const sent = await sock.sendMessage(session.chatId, { text: questionText(session, extra) }, { quoted: quotedMessage });
   session.questionMessageId = sent?.key?.id || null;
+  session.decisionMessageId = null;
   session.optionsShown = Boolean(session.displayedOptions?.length);
   session.removeAvailable = session.stage === 2 || session.stage === 3 ? session.optionsShown && !session.removeUsed : false;
   session.awaitingDecision = false;
@@ -254,6 +347,8 @@ async function startTrivia(sock, chatId, userId, message, altUserId = null) {
     lastAnsweredQuestion: 0,
     startedAt: Date.now(),
     questionMessageId: null,
+    decisionMessageId: null,
+    playerName: String(message?.pushName || message?.verifiedBizName || 'المتسابق').trim() || 'المتسابق',
     timerHandle: null,
     timerToken: 0,
     timerMode: 'question',
@@ -318,7 +413,7 @@ async function removeOption(sock, chatId, userId, message, altUserId = null) {
 }
 async function continueTrivia(sock, chatId, userId, message, altUserId = null) {
   const session = sessions.get(chatId);
-  if (!session || !sameUser(session.userId, userId, altUserId) || !session.awaitingDecision || !isReplyTo(message, session.questionMessageId)) return false;
+  if (!session || !sameUser(session.userId, userId, altUserId) || !session.awaitingDecision || !isReplyTo(message, session.decisionMessageId)) return false;
   clearTimer(session);
   const next = session.questionNumber + 1;
   if (next > config.TOTAL_QUESTIONS) return false;
@@ -343,23 +438,24 @@ async function continueTrivia(sock, chatId, userId, message, altUserId = null) {
 }
 async function leaveTrivia(sock, chatId, userId, message, confirm = false, altUserId = null) {
   const session = sessions.get(chatId);
-  if (!session || !sameUser(session.userId, userId, altUserId) || !isReplyTo(message, session.questionMessageId)) return false;
-  if (!confirm) return sock.sendMessage(chatId, { text: '⚠️ *تأكيد المغادرة*\n\nستحصل على جائزة آخر سؤال تمت إجابته، وليس على جائزة السؤال الحالي إذا لم تجب عنه.\n\n⏱️ هذه المغادرة الاختيارية تفرض مهلة *15 دقيقة*.\n\n↩️ أرسل *مغادرة نعم* بالرد على رسالة السؤال الحالية للتأكيد.' }, { quoted: message });
+  if (!session || !sameUser(session.userId, userId, altUserId) || !isReplyTo(message, session.awaitingDecision ? session.decisionMessageId : session.questionMessageId)) return false;
+  if (!confirm && !session.awaitingDecision) return sock.sendMessage(chatId, { text: '⚠️ *تأكيد المغادرة*\n\nستحصل على جائزة آخر سؤال تمت إجابته.\n\n↩️ أرسل *مغادرة نعم* بالرد على رسالة السؤال الحالية للتأكيد.' }, { quoted: message });
   clearTimer(session);
   sessions.delete(chatId);
   await setCooldown(userId, config.LEAVE_COOLDOWN_MS);
   const awarded = Math.max(Number(session.currentReward || 0), Number(session.bankedReward || 0));
   await creditUpTo(session, awarded);
   saveRecord(session, 'مغادرة اختيارية', awarded, { cooldownMs: config.LEAVE_COOLDOWN_MS });
+  await sendPrizeCheque(sock, session, awarded, 'مغادرة اختيارية');
   return sock.sendMessage(chatId, { text: `🚪 *تمت المغادرة بنجاح.*\n\n💰 الجائزة المصروفة: *${awarded} ${currency.name}*\n🏆 آخر سؤال أجبت عنه: *${session.lastAnsweredQuestion}*\n⏰ مهلة إعادة اللعب: *15 دقيقة*\n\n📒 تم حفظ النتيجة في سجل المسابقات.` }, { quoted: message });
 }
 async function answerTrivia(sock, chatId, answer, userId, message, altUserId = null) {
   const session = sessions.get(chatId);
-  if (!session || !sameUser(session.userId, userId, altUserId) || !isReplyTo(message, session.questionMessageId)) return false;
+  if (!session || !sameUser(session.userId, userId, altUserId) || !isReplyTo(message, session.awaitingDecision ? session.decisionMessageId : session.questionMessageId)) return false;
   const cmd = parseCommand(answer);
   if (session.awaitingDecision) {
     if (cmd === 'استمرار' || cmd === 'متابعة') return continueTrivia(sock, chatId, userId, message, altUserId);
-    if (cmd === 'مغادرة' || cmd === 'مغادره') return leaveTrivia(sock, chatId, userId, message, false, altUserId);
+    if (cmd === 'مغادرة' || cmd === 'مغادره') return leaveTrivia(sock, chatId, userId, message, true, altUserId);
     if (cmd === 'مغادرة نعم' || cmd === 'مغادره نعم' || cmd === 'مغادرةنعم') return leaveTrivia(sock, chatId, userId, message, true, altUserId);
     return true;
   }
@@ -394,10 +490,13 @@ async function answerTrivia(sock, chatId, answer, userId, message, altUserId = n
       clearTimer(session); sessions.delete(chatId);
       await setCooldown(userId, config.NORMAL_COOLDOWN_MS);
       saveRecord(session, 'فوز كامل', session.currentReward, { cooldownMs: config.NORMAL_COOLDOWN_MS });
+      await sendPrizeCheque(sock, session, session.currentReward, 'فوز كامل');
       return sock.sendMessage(chatId, { text: `🏆 *مبروك! أكملت المسابقة.*\n\n💰 الجائزة النهائية: *${session.currentReward} ${currency.name}*\n📈 إجمالي تكاليف الأسئلة: *${cumulativeCost(q)} ${currency.name}*\n⏰ يمكنك بدء مسابقة جديدة بعد *5 دقائق*.\n\n📒 تم حفظ النتيجة في سجل المسابقات.` }, { quoted: message });
     }
     const next = q + 1;
-    return sock.sendMessage(chatId, { text: `🎉 *إجابة صحيحة!*\n\n🛡️ وصلت إلى نقطة أمان.\n\n🔥 هل تريد المخاطرة بالسؤال *${next}*؟\n\n⏱️ لديك *دقيقتان* لاتخاذ القرار. إذا لم ترد، يعتبرك النظام منسحبًا وتحصل على آخر جائزة مضمونة فقط.\n\n↩️ *استمرار* أو *مغادرة* — ويجب أن يكون الرد على رسالة السؤال الحالية.` }, { quoted: message });
+    const decision = await sock.sendMessage(chatId, { text: `🎉 *إجابة صحيحة!*\n\n🛡️ *نقطة أمان ${q}*\n💰 الجائزة المضمونة الآن: *${session.bankedReward} ${currency.name}*\n\n🔥 هل تريد المخاطرة بالسؤال *${next}*؟\n\n⏱️ لديك *دقيقتان* لاتخاذ القرار. إذا لم ترد، يعتبرك النظام منسحبًا وتحصل على آخر جائزة مضمونة فقط.\n\n↩️ *استمرار* أو *مغادرة*\n📌 *يجب أن ترد على هذه الرسالة نفسها.*` }, { quoted: message });
+    session.decisionMessageId = decision?.key?.id || null;
+    return decision;
   }
   session.stage = stageFor(session.questionNumber);
   const next = session.questionNumber + 1;
@@ -429,4 +528,4 @@ async function contestHistoryCommand(sock, chatId, userId, message) {
   return sock.sendMessage(chatId, { text }, { quoted: message });
 }
 function isTriviaActive(chatId) { return sessions.has(chatId); }
-module.exports = { startTrivia, answerTrivia, requestOptions, removeOption, leaveTrivia, continueTrivia, isTriviaActive, contestHistoryCommand, getQuotedId };
+module.exports = { startTrivia, answerTrivia, requestOptions, removeOption, leaveTrivia, continueTrivia, isTriviaActive, contestHistoryCommand, getQuotedId, makePrizeCheque };

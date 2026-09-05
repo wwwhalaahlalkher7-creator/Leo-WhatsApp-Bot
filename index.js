@@ -9,6 +9,16 @@
  * - Baileys Library by @adiwajshing
  * - Pair Code implementation inspired by TechGod143 & DGXEON
  */
+// Protected Core: refuse startup when an approved feature/code file was modified
+// without explicit owner approval. The protection manifest itself is excluded
+// from hashing so an intentional approval can refresh it.
+const protection = require('./scripts/protection-audit');
+const protectionResult = protection.verify();
+if (!protectionResult.ok) {
+    console.error('🛡️ LeoBot Protected Core blocked startup.');
+    for (const failure of protectionResult.failures) console.error(` - ${failure}`);
+    process.exit(1);
+}
 require('./settings')
 const { Boom } = require('@hapi/boom')
 const fs = require('fs')

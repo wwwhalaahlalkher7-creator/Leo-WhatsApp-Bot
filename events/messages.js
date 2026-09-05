@@ -143,12 +143,9 @@ async function handleMessages(sock, messageUpdate, printLog) {
         if (/^(اوامر|أوامر|commands|command|مساعدة|المساعدة|help)$/i.test(rawCommandText)) rawCommandText = '.' + rawCommandText;
         let userMessage = normalizeArabicCommand(rawCommandText).toLowerCase().trim();
         errorUserMessage = userMessage;
-        // Arabic «مغادرة» is the trivia-leave action while a contest is active;
-        // otherwise it remains the owner's group-leave command. English `.leave`
-        // remains available to the owner as an unambiguous group-leave command.
-        if (/^\.مغادرة(?:\s|$)/i.test(rawCommandText) && isTriviaActive(chatId)) {
-            userMessage = `.trivia-leave${rawCommandText.slice('.مغادرة'.length)}`.toLowerCase().trim();
-        }
+        // During an active trivia round, `.استمرار` / `.مغادرة` are handled as
+        // reply-bound game actions below. Outside trivia, `.مغادرة` remains the
+        // owner's group-leave command.
 
         // Preserve raw message for commands like .tag that need original casing
         const rawText = message.message?.conversation?.trim() ||
@@ -172,6 +169,14 @@ async function handleMessages(sock, messageUpdate, printLog) {
         }
         const isOwnerOrSudoCheck = message.key.fromMe || senderIsOwnerOrSudo;
         const commandToken = userMessage.split(/\s+/)[0];
+
+        // Trivia decision actions may be written with a dot as well. They are
+        // accepted only as replies to the exact safe-point decision message.
+        if (isTriviaActive(chatId) && /^\.(استمرار|متابعة|مغادرة|مغادره)(?:\s|$)/i.test(rawCommandText)) {
+            const actionText = rawCommandText.replace(/^\./, '').trim();
+            const handledTriviaAction = await answerTrivia(sock, chatId, actionText, senderId, message, senderIdAlt);
+            if (handledTriviaAction) return;
+        }
 
         // HARD GROUP ACCESS GATE:
         // Until the owner explicitly approves a group, absolutely no command,
