@@ -134,7 +134,6 @@ function prizeChequeSvg(session, awarded, result) {
 }
 
 async function makePrizeCheque(session, awarded, result) {
-  if (!(Number(awarded) > 0)) return null;
   const svg = prizeChequeSvg(session, awarded, result);
   const out = await sharp(Buffer.from(svg))
     .png()
@@ -143,7 +142,6 @@ async function makePrizeCheque(session, awarded, result) {
 }
 
 async function sendPrizeCheque(sock, session, awarded, result) {
-  if (!(Number(awarded) > 0)) return;
   try {
     const cheque = await makePrizeCheque(session, awarded, result);
     const caption = `🧾 *شيك جائزة Leo*\n\n👤 المتسابق: *${session.playerName || 'المتسابق'}*\n💰 المبلغ المعتمد: *${Number(awarded).toLocaleString('en-US')} ${currency.name}*\n✍️ التوقيع: *Leonardo*`;
@@ -232,7 +230,7 @@ function questionText(session, extra = '') {
   const removeLine = session.removeAvailable
     ? `\n🗑️ المساعدة التالية: حذف خيار خاطئ واحد — التكلفة: *${competitionPrices.REMOVE_OPTION_COSTS[stage]} ${currency.name}* بالرد على رسالة هذا السؤال.`
     : '';
-  return `╭━━━〔 🏆 المسابقة الكبرى 〕━━━╮\n┃ المرحلة: *${stage}/4*\n┃ السؤال: *${session.questionNumber}/${config.TOTAL_QUESTIONS}*\n┃ ⏱️ مهلة الإجابة: *دقيقتان*\n╰━━━━━━━━━━━━━━━━━━━━━━╯\n\n${progress}\n\n🧠 *${q.category || 'عام'}*\n\n❓ ${q.question}${options}${helpLine}${removeLine}\n\n↩️ *أجب فقط بالرد على رسالة هذا السؤال.*${extra ? `\n\n${extra}` : ''}`;
+  return `╭━━━〔 🏆 المسابقة الكبرى 〕━━━╮\n┃ المرحلة: *${stage}/4*\n┃ السؤال: *${session.questionNumber}/${config.TOTAL_QUESTIONS}*\n┃ ⏱️ الزمن: *${Math.max(0, Math.ceil((Number(session.questionDeadlineAt || Date.now()) - Date.now()) / 1000))} ثانية*\n╰━━━━━━━━━━━━━━━━━━━━━━╯\n\n${progress}\n\n🧠 *${q.category || 'عام'}*\n\n❓ ${q.question}${options}${helpLine}${removeLine}\n\n↩️ *أجب فقط بالرد على رسالة هذا السؤال.*${extra ? `\n\n${extra}` : ''}`;
 }
 function saveRecord(session, result, awarded, extra = {}) {
   const record = {
@@ -290,11 +288,15 @@ function armTimer(sock, session, mode) {
   clearTimer(session);
   const token = session.timerToken;
   const duration = mode === 'decision' ? config.SAFE_DECISION_TIMEOUT_MS : config.QUESTION_TIMEOUT_MS;
+  const remaining = mode === 'question' && Number(session.questionDeadlineAt) > 0
+    ? Math.max(1, Number(session.questionDeadlineAt) - Date.now())
+    : duration;
+  if (mode === 'question' && !(Number(session.questionDeadlineAt) > 0)) session.questionDeadlineAt = Date.now() + duration;
   session.timerMode = mode;
   session.timerHandle = setTimeout(() => {
     if (session.timerToken !== token || sessions.get(session.chatId) !== session) return;
     timeoutContest(sock, session, mode).catch(err => console.error('[competition] timeout', err));
-  }, duration);
+  }, remaining);
 }
 async function finishLoss(sock, session, reason) {
   clearTimer(session);
@@ -302,8 +304,9 @@ async function finishLoss(sock, session, reason) {
   await setCooldown(session.userId, config.NORMAL_COOLDOWN_MS);
   const awarded = Number(session.bankedReward || 0);
   saveRecord(session, reason, awarded);
+  await sendPrizeCheque(sock, session, awarded, 'خسارة');
   const answer = session.currentQuestion?.answer || 'غير متاحة';
-  await sock.sendMessage(session.chatId, { text: `❌ *انتهت المسابقة بالخسارة.*\n\nالإجابة الصحيحة: *${answer}*\n\n💰 آخر جائزة مضمونة لك: *${awarded} ${currency.name}*\n⏰ يمكنك بدء مسابقة جديدة بعد *5 دقائق*.` });
+  await sock.sendMessage(session.chatId, { text: `❌ *انتهت المسابقة بالخسارة.*\n\nالإجابة الصحيحة: *${answer}*\n\n💰 إجمالي النيـورونات المكتسبة حتى آخر سؤال تمت إجابته: *${awarded} ${currency.name}*\n⏰ يمكنك بدء مسابقة جديدة بعد *5 دقائق*.` });
 }
 async function timeoutContest(sock, session, mode) {
   const label = mode === 'decision' ? 'انتهاء مهلة القرار' : 'انتهاء مهلة الإجابة';
@@ -312,6 +315,7 @@ async function timeoutContest(sock, session, mode) {
   await setCooldown(session.userId, config.NORMAL_COOLDOWN_MS);
   const awarded = Number(session.bankedReward || 0);
   saveRecord(session, label, awarded);
+  await sendPrizeCheque(sock, session, awarded, mode === 'decision' ? 'انتهاء المهلة' : 'خسارة بسبب الوقت');
   const text = mode === 'decision'
     ? `⏰ *انتهت مهلة القرار.*\n\nلم تختر الاستمرار أو المغادرة خلال *دقيقتين*، لذلك اعتبرك النظام *منسحبًا*.\n\n💰 الجائزة المضمونة: *${awarded} ${currency.name}*\n⏰ مهلة إعادة اللعب: *5 دقائق*.`
     : `⏰ *انتهت مهلة الإجابة.*\n\nلم تصل إجابتك خلال *دقيقتين*، لذلك اعتُبرت الحالة *خسارة* وليست مغادرة.\n\n💰 الجائزة المضمونة: *${awarded} ${currency.name}*\n⏰ مهلة إعادة اللعب: *5 دقائق*.`;
@@ -321,7 +325,8 @@ function ensurePlayerReply(session, userId, altUserId, message) {
   if (!sameUser(session.userId, userId, altUserId)) return false;
   return isReplyTo(message, session.questionMessageId);
 }
-async function sendQuestion(sock, session, quotedMessage, extra = '') {
+async function sendQuestion(sock, session, quotedMessage, extra = '', preserveDeadline = false) {
+  if (!preserveDeadline || !(Number(session.questionDeadlineAt) > Date.now())) session.questionDeadlineAt = Date.now() + config.QUESTION_TIMEOUT_MS;
   const sent = await sock.sendMessage(session.chatId, { text: questionText(session, extra) }, { quoted: quotedMessage });
   session.questionMessageId = sent?.key?.id || null;
   session.decisionMessageId = null;
@@ -384,12 +389,11 @@ async function requestOptions(sock, chatId, userId, message, altUserId = null) {
   const cost = competitionPrices.OPTION_COSTS[stage];
   if (!cost) return sock.sendMessage(chatId, { text: '🚫 لا تتوفر الخيارات في هذه المرحلة.' }, { quoted: message });
   if (session.optionsShown) return sock.sendMessage(chatId, { text: 'ℹ️ الخيارات مفتوحة بالفعل لهذا السؤال.' }, { quoted: message });
-  clearTimer(session);
   const charged = await economy.charge(userId, cost, `game:trivia:options:${stage}`);
   if (!charged.ok) { armTimer(sock, session, 'question'); return sock.sendMessage(chatId, { text: `💸 لا تملك ما يكفي من ${currency.name} لاستخدام هذه المساعدة.` }, { quoted: message }); }
   try {
     session.displayedOptions = makeDisplayedOptions(session.currentQuestion, stage);
-    await sendQuestion(sock, session, message, '🆘 تم تفعيل المساعدة الأساسية.');
+    await sendQuestion(sock, session, message, '🆘 تم تفعيل المساعدة الأساسية.', true);
   } catch (error) {
     session.displayedOptions = [];
     await economy.refund(userId, cost, `refund:game:trivia:options:${stage}`);
@@ -405,7 +409,6 @@ async function removeOption(sock, chatId, userId, message, altUserId = null) {
   if (!cost) return sock.sendMessage(chatId, { text: '🚫 لا تتوفر هذه المساعدة في هذه المرحلة.' }, { quoted: message });
   if (!session.optionsShown) return sock.sendMessage(chatId, { text: '⚠️ يجب استخدام مساعدة الخيارات أولًا.' }, { quoted: message });
   if (session.removeUsed) return sock.sendMessage(chatId, { text: 'ℹ️ تم استخدام حذف خيار لهذا السؤال بالفعل.' }, { quoted: message });
-  clearTimer(session);
   const charged = await economy.charge(userId, cost, `game:trivia:remove-option:${session.stage}`);
   if (!charged.ok) { armTimer(sock, session, 'question'); return sock.sendMessage(chatId, { text: `💸 لا تملك ما يكفي من ${currency.name} لاستخدام هذه المساعدة.` }, { quoted: message }); }
   const wrongIndexes = session.displayedOptions.map((v, i) => normalizeAnswer(v) === normalizeAnswer(session.currentQuestion.answer) ? -1 : i).filter(i => i >= 0);
@@ -418,7 +421,7 @@ async function removeOption(sock, chatId, userId, message, altUserId = null) {
   session.displayedOptions = session.displayedOptions.filter((_, i) => i !== removeIndex);
   session.removeUsed = true;
   session.removeAvailable = false;
-  await sendQuestion(sock, session, message, '🗑️ حُذف خيار خاطئ. الإجابة الصحيحة لم تُحذف.');
+  await sendQuestion(sock, session, message, '🗑️ حُذف خيار خاطئ. الإجابة الصحيحة لم تُحذف.', true);
   return true;
 }
 async function continueTrivia(sock, chatId, userId, message, altUserId = null) {
@@ -433,6 +436,7 @@ async function continueTrivia(sock, chatId, userId, message, altUserId = null) {
     sessions.delete(chatId);
     await setCooldown(userId, config.NORMAL_COOLDOWN_MS);
     saveRecord(session, 'توقف لعدم كفاية الرصيد', session.bankedReward);
+    await sendPrizeCheque(sock, session, Number(session.bankedReward || 0), 'توقف');
     return sock.sendMessage(chatId, { text: `💸 لا تملك ما يكفي من ${currency.name} لدخول السؤال التالي.\n\n🏦 آخر جائزة مضمونة محفوظة لك.\n⏰ مهلة إعادة اللعب: *5 دقائق*.` }, { quoted: message });
   }
   session.questionNumber = next;
@@ -452,12 +456,13 @@ async function leaveTrivia(sock, chatId, userId, message, confirm = false, altUs
   if (!confirm && !session.awaitingDecision) return sock.sendMessage(chatId, { text: '⚠️ *تأكيد المغادرة*\n\nستحصل على جائزة آخر سؤال تمت إجابته.\n\n↩️ أرسل *مغادرة نعم* بالرد على رسالة السؤال الحالية للتأكيد.' }, { quoted: message });
   clearTimer(session);
   sessions.delete(chatId);
-  await setCooldown(userId, config.LEAVE_COOLDOWN_MS);
-  const awarded = Math.max(Number(session.currentReward || 0), Number(session.bankedReward || 0));
-  await creditUpTo(session, awarded);
-  saveRecord(session, 'مغادرة اختيارية', awarded, { cooldownMs: config.LEAVE_COOLDOWN_MS });
+  const safeLeave = Boolean(session.awaitingDecision);
+  const cooldownMs = safeLeave ? config.SAFE_LEAVE_COOLDOWN_MS : config.LEAVE_COOLDOWN_MS;
+  await setCooldown(userId, cooldownMs);
+  const awarded = Number(session.bankedReward || 0);
+  saveRecord(session, 'مغادرة اختيارية', awarded, { cooldownMs });
   await sendPrizeCheque(sock, session, awarded, 'مغادرة اختيارية');
-  return sock.sendMessage(chatId, { text: `🚪 *تمت المغادرة بنجاح.*\n\n💰 الجائزة المصروفة: *${awarded} ${currency.name}*\n🏆 آخر سؤال أجبت عنه: *${session.lastAnsweredQuestion}*\n⏰ مهلة إعادة اللعب: *15 دقيقة*\n\n📒 تم حفظ النتيجة في سجل المسابقات.` }, { quoted: message });
+  return sock.sendMessage(chatId, { text: `🚪 *تمت المغادرة بنجاح.*\n\n💰 إجمالي النيـورونات المكتسبة حتى آخر سؤال: *${awarded} ${currency.name}*\n🏆 آخر سؤال أجبت عنه: *${session.lastAnsweredQuestion}*\n⏰ مهلة إعادة اللعب: *${Math.round(cooldownMs / 60000)} دقائق*\n\n📒 تم حفظ النتيجة في سجل المسابقات.` }, { quoted: message });
 }
 async function answerTrivia(sock, chatId, answer, userId, message, altUserId = null) {
   const session = sessions.get(chatId);
@@ -484,6 +489,7 @@ async function answerTrivia(sock, chatId, answer, userId, message, altUserId = n
     submitted = normalizeAnswer(session.displayedOptions[idx]);
   }
   const correct = normalizeAnswer(session.currentQuestion.answer);
+  const remainingSeconds = Math.max(0, Math.ceil((Number(session.questionDeadlineAt || Date.now()) - Date.now()) / 1000));
   if (submitted !== correct) return finishLoss(sock, session, 'خسارة');
 
   session.lastAnsweredQuestion = session.questionNumber;
@@ -517,6 +523,7 @@ async function answerTrivia(sock, chatId, answer, userId, message, altUserId = n
     sessions.delete(chatId);
     await setCooldown(userId, config.NORMAL_COOLDOWN_MS);
     saveRecord(session, 'توقف لعدم كفاية الرصيد', session.bankedReward);
+    await sendPrizeCheque(sock, session, Number(session.bankedReward || 0), 'توقف');
     return sock.sendMessage(chatId, { text: `💸 إجابة صحيحة، لكن لا تملك ما يكفي من ${currency.name} لدخول السؤال التالي.\n\n🏦 آخر جائزة مضمونة محفوظة لك.\n⏰ مهلة إعادة اللعب: *5 دقائق*.` }, { quoted: message });
   }
   session.questionNumber = next;
@@ -528,7 +535,7 @@ async function answerTrivia(sock, chatId, answer, userId, message, altUserId = n
   session.removeAvailable = false;
   session.removeUsed = false;
   session.awaitingDecision = false;
-  return sendQuestion(sock, session, message, '✅ إجابة صحيحة! انتقلت للسؤال التالي.');
+  return sendQuestion(sock, session, message, `✅ إجابة صحيحة! انتقلت للسؤال التالي.\n⏱️ كان متبقيًا لك *${remainingSeconds} ثانية* في السؤال السابق.`);
 }
 function historyFor(userId) { return history.latest(userId); }
 async function contestHistoryCommand(sock, chatId, userId, message) {

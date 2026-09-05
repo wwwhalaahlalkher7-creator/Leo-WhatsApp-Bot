@@ -31,7 +31,7 @@ async function bankCommand(sock, chatId, userId, message, economy = null) {
   economy ||= require('../systems/economy').createEconomy();
   try {
     const balance = await economy.balance(userId);
-    const history = summarizeHistory(economy.history(userId, 50)).slice(0,5);
+    const history = economy.history(userId, 10);
     const lines = history.length
       ? history.map((tx, i) => `${i + 1}. ${tx.type === 'credit' ? '🟢 +' : '🔴 -'}${tx.amount} — ${tx.reason==='game:trivia:summary'?'المسابقة':economy.formatReason(tx.reason)}`).join('\n')
       : 'لا توجد عمليات مسجلة بعد.';
@@ -48,7 +48,6 @@ async function transferCommand(sock, chatId, userId, message, economy = null) {
   economy ||= require('../systems/economy').createEconomy();
   try {
     const parts = input.args(input.text(message));
-    parts.shift();
     const target = extractTarget(message);
     const amount = parseAmount(parts.filter(p => !p.startsWith('@')).pop());
 
@@ -78,7 +77,7 @@ async function transferCommand(sock, chatId, userId, message, economy = null) {
 
 async function historyCommand(sock, chatId, userId, message, economy = null) {
   economy ||= require('../systems/economy').createEconomy();
-  const history = summarizeHistory(economy.history(userId, 50)).slice(0,15);
+  const history = economy.history(userId, 10);
   const text = history.length
     ? `📒 *سجل بنك Leo*\n\n${history.map((tx, i) => `${i + 1}. ${tx.type === 'credit' ? '🟢 +' : '🔴 -'}${tx.amount} — ${tx.reason==='game:trivia:summary'?'المسابقة':economy.formatReason(tx.reason)}\n   ${new Date(tx.at).toLocaleString('ar-EG')}`).join('\n')}`
     : '📒 لا توجد عمليات في السجل بعد.';

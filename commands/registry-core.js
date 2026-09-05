@@ -37,11 +37,12 @@ add({ name:'balance',aliases:[], localizedAliases:['رصيد','رصيدي'], loc
   if (target && ctx.systems.economy.normalizeId(target) !== ctx.systems.economy.normalizeId(ctx.senderId)) {
     let name = `@${String(target).split('@')[0]}`;
     try { name = await sock.getName(target, false) || name; } catch {}
-    return ctx.systems.response.text(sock, chatId, `💰 *رصيد ${name}*\n\n${economyMessages.balance(balance)}`, message);
+    return ctx.systems.response.text(sock, chatId, `💰 *رصيد ${name}*\n\n💰 المبلغ: *${currency.balance(balance)}*`, message);
   }
   return ctx.systems.response.text(sock, chatId, `${economyMessages.balance(balance)}\n\n🪙 استخدم *.عمل* لكسب المزيد.\n🏦 استخدم *.بنك* لإدارة رصيدك.`, message);
 } });
 add({ name:'bank',aliases:[], localizedAliases:['بنك','بنكك'], localizedName:'بنك', category:'economy', usage:'.بنك', description:'عرض رصيد الحساب وآخر العمليات المالية.', method:'أرسل `.بنك`.', execute:(sock, chatId, message, args, ctx) => bankCommand(sock, chatId, ctx.senderId, message, ctx.systems.economy) });
+add({ name:'transfer',aliases:[], localizedAliases:['تحويل'], localizedName:'تحويل', category:'economy', usage:'.تحويل @العضو المبلغ', description:'تحويل نيورونات إلى عضو آخر.', method:'اذكر العضو أو رد على رسالته ثم اكتب المبلغ.', execute:(sock, chatId, message, args, ctx) => transferCommand(sock, chatId, ctx.senderId, message, ctx.systems.economy) });
 add({ name:'transactions', aliases:['history'], localizedAliases:['السجل','سجل'], localizedName:'السجل', category:'economy', usage:'.سجل', description:'عرض آخر العمليات المالية.', method:'أرسل `.سجل`.', execute:(sock, chatId, message, args, ctx) => historyCommand(sock, chatId, ctx.senderId, message, ctx.systems.economy) });
 add({ name:'level',aliases:[], localizedAliases:['مستوى','مستواي','بروفايل','ملفي'], localizedName:'مستوى', category:'level', usage:'.مستوى', description:'عرض مستوى XP وبطاقة تقدم العضو.', method:'أرسل الأمر لعرض بطاقة مستواك.', execute:(sock,chatId,message,args,ctx)=>levelCommand(sock,chatId,ctx.senderId,message) });
 add({ name:'subscription',aliases:[], localizedAliases:['اشتراك','الاشتراك'], localizedName:'اشتراك', category:'premium', usage:'.اشتراك [شراء|حالي]', description:'عرض اشتراكات Leo ومزاياها وحالة اشتراكك.', method:'أرسل `.اشتراك` لعرض الباقات.', execute:(sock,chatId,message,args,ctx)=>subscriptionCommand(sock,chatId,ctx.senderId,message,args) });

@@ -4,6 +4,7 @@ const axios = require('axios');
 const sharp = require('sharp');
 const { t } = require('../lib/i18n');
 const economyMessages = require('../systems/economy/messages');
+const omni = require('../lib/providers/ai/omniroute');
 
 function getText(message) {
   return message.message?.conversation?.trim() ||
@@ -151,12 +152,21 @@ module.exports = async function imageSearchCommand(sock, chatId, message, userId
           seen.add(item.url);
           return true;
         });
-        if (!candidates.length) {
-          const error = new Error('No image candidates found');
-          error.code = 'IMAGE_NOT_FOUND';
-          throw error;
+        let chosen = null;
+        try {
+          if (!candidates.length) throw new Error('No image candidates found');
+          chosen = await downloadImageCandidates(candidates);
+        } catch (searchError) {
+          // Final intelligent layer: when web search cannot provide a usable image,
+          // ask the configured OmniRoute image model to create one that matches the
+          // user's description instead of returning an empty result.
+          if (!omni.enabled()) throw searchError;
+          console.warn('[IMAGE-SEARCH] Web image search failed; trying OmniRoute image generation:', searchError?.message || searchError);
+          const aiPrompt = `أنشئ صورة مناسبة تمامًا لوصف المستخدم التالي. اجعل الصورة تجسد الوصف مباشرة، بدون نصوص أو شعارات أو علامات مائية إلا إذا طلب المستخدم ذلك صراحة. الوصف: ${query}`;
+          const buffer = await omni.generateImage(aiPrompt);
+          if (!Buffer.isBuffer(buffer) || buffer.length < 1000) throw new Error('OmniRoute returned an invalid image');
+          chosen = { title: `صورة مولدة تناسب: ${query}`, buffer, source: 'OmniRoute' };
         }
-        const chosen = await downloadImageCandidates(candidates);
         await sock.sendMessage(chatId, {
           image: chosen.buffer,
           caption: t('ai.imageSearchCaption', '', { title: chosen.title, query }),
