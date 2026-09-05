@@ -7,7 +7,7 @@
  */
 const CURRENCY = Object.freeze({
   key: 'currency',
-  name: 'نيورون',
+  name: 'ليورون',
   symbol: '🪙',
   amount: amount => `${Number(amount) || 0} ${CURRENCY.name}`,
   enough: amount => `ما يكفي من ${CURRENCY.name}`,
