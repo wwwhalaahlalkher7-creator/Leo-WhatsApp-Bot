@@ -30,13 +30,20 @@ add({ name:'fact',aliases:[], localizedAliases:['معلومة','معلومه'], 
 add({ name:'news',aliases:[], localizedAliases:['أخبار','اخبار'], localizedName:'أخبار', category:'utility', usage:'.أخبار', description:'جلب آخر الأخبار المتاحة.', method:'أرسل `.أخبار`.', execute:newsCommand });
 add({ name:'topmembers',aliases:[], localizedAliases:['التوب','توب الأعضاء'], localizedName:'التوب', category:'level', usage:'.توب_الأعضاء', description:'عرض ترتيب الأعضاء حسب النشاط المسجل.', method:'استخدم الأمر داخل المجموعة.', groupOnly:true, execute:(sock, chatId, message, args, ctx) => topMembers(sock, chatId, ctx.isGroup) });
 add({ name:'alive', aliases:[], localizedAliases:['حالة'], localizedName:'حالة', category:'utility', usage:'.حالة', description:'عرض حالة LeoBot ومعلومات التشغيل الأساسية.', method:'أرسل `.حالة`.', execute:aliveCommand });
-add({ name:'balance',aliases:[], localizedAliases:['رصيد','رصيدي'], localizedName:'رصيد', category:'economy', usage:'.رصيد', description:'عرض رصيد حسابك الحالي.', method:'أرسل `.رصيد`.', execute:async (sock, chatId, message, args, ctx) => {
-  const balance = await ctx.systems.economy.balance(ctx.senderId);
+add({ name:'balance',aliases:[], localizedAliases:['رصيد','رصيدي'], localizedName:'رصيد', category:'economy', usage:'.رصيد [بالرد على عضو]', description:'عرض رصيد حسابك الحالي أو رصيد عضو بالرد على رسالته.', method:'أرسل `.رصيد`، أو رد على رسالة العضو بالأمر.', execute:async (sock, chatId, message, args, ctx) => {
+  const target = require('../systems/input').replySender(message);
+  const userId = target || ctx.senderId;
+  const balance = await ctx.systems.economy.balance(userId);
+  if (target && ctx.systems.economy.normalizeId(target) !== ctx.systems.economy.normalizeId(ctx.senderId)) {
+    let name = `@${String(target).split('@')[0]}`;
+    try { name = await sock.getName(target, false) || name; } catch {}
+    return ctx.systems.response.text(sock, chatId, `💰 *رصيد ${name}*\n\n${economyMessages.balance(balance)}`, message);
+  }
   return ctx.systems.response.text(sock, chatId, `${economyMessages.balance(balance)}\n\n🪙 استخدم *.عمل* لكسب المزيد.\n🏦 استخدم *.بنك* لإدارة رصيدك.`, message);
 } });
 add({ name:'bank',aliases:[], localizedAliases:['بنك','بنكك'], localizedName:'بنك', category:'economy', usage:'.بنك', description:'عرض رصيد الحساب وآخر العمليات المالية.', method:'أرسل `.بنك`.', execute:(sock, chatId, message, args, ctx) => bankCommand(sock, chatId, ctx.senderId, message, ctx.systems.economy) });
 add({ name:'transactions', aliases:['history'], localizedAliases:['السجل','سجل'], localizedName:'السجل', category:'economy', usage:'.سجل', description:'عرض آخر العمليات المالية.', method:'أرسل `.سجل`.', execute:(sock, chatId, message, args, ctx) => historyCommand(sock, chatId, ctx.senderId, message, ctx.systems.economy) });
-add({ name:'level',aliases:[], localizedAliases:['مستوى','مستواي'], localizedName:'مستوى', category:'level', usage:'.مستوى', description:'عرض مستوى XP وبطاقة تقدم العضو.', method:'أرسل الأمر لعرض بطاقة مستواك.', execute:(sock,chatId,message,args,ctx)=>levelCommand(sock,chatId,ctx.senderId,message) });
+add({ name:'level',aliases:[], localizedAliases:['مستوى','مستواي','بروفايل','ملفي'], localizedName:'مستوى', category:'level', usage:'.مستوى', description:'عرض مستوى XP وبطاقة تقدم العضو.', method:'أرسل الأمر لعرض بطاقة مستواك.', execute:(sock,chatId,message,args,ctx)=>levelCommand(sock,chatId,ctx.senderId,message) });
 add({ name:'subscription',aliases:[], localizedAliases:['اشتراك','الاشتراك'], localizedName:'اشتراك', category:'premium', usage:'.اشتراك [شراء|حالي]', description:'عرض اشتراكات Leo ومزاياها وحالة اشتراكك.', method:'أرسل `.اشتراك` لعرض الباقات.', execute:(sock,chatId,message,args,ctx)=>subscriptionCommand(sock,chatId,ctx.senderId,message,args) });
 add({ name:'work',aliases:[], localizedAliases:['عمل','وظيفة'], localizedName:'عمل', category:'economy', usage:'.عمل', description:'تنفيذ وظيفة عشوائية لكسب الرصيد.', method:'أرسل `.عمل` وانتظر انتهاء فترة الانتظار قبل المحاولة التالية.', execute:(sock, chatId, message, args, ctx) => workCommand(sock, chatId, ctx.senderId, message, ctx.systems.economy) });
 

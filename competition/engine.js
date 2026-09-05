@@ -146,12 +146,16 @@ async function sendPrizeCheque(sock, session, awarded, result) {
   if (!(Number(awarded) > 0)) return;
   try {
     const cheque = await makePrizeCheque(session, awarded, result);
-    await sock.sendMessage(session.chatId, {
-      image: cheque,
-      caption: `🧾 *شيك جائزة Leo*\n\n👤 المتسابق: *${session.playerName || 'المتسابق'}*\n💰 المبلغ المعتمد: *${Number(awarded).toLocaleString('en-US')} ${currency.name}*\n✍️ التوقيع: *Leonardo*`
-    });
+    const caption = `🧾 *شيك جائزة Leo*\n\n👤 المتسابق: *${session.playerName || 'المتسابق'}*\n💰 المبلغ المعتمد: *${Number(awarded).toLocaleString('en-US')} ${currency.name}*\n✍️ التوقيع: *Leonardo*`;
+    try {
+      await sock.sendMessage(session.chatId, { image: cheque, mimetype: 'image/png', caption });
+    } catch (imageError) {
+      console.error('[competition] prize cheque image failed', imageError?.message || imageError);
+      // Fallback: deliver the exact same cheque as a document if WhatsApp rejects the image payload.
+      await sock.sendMessage(session.chatId, { document: cheque, mimetype: 'image/png', fileName: `Leo-Prize-${session.contestId || Date.now()}.png`, caption });
+    }
   } catch (error) {
-    console.error('[competition] prize cheque failed', error);
+    console.error('[competition] prize cheque failed', error?.message || error);
   }
 }
 function getQuotedId(message) { return interaction.quotedId(message); }
@@ -222,11 +226,11 @@ function questionText(session, extra = '') {
   const options = shown.length ? `\n\n${optionBlock(shown)}` : '';
   const helpLine = stage <= 3
     ? (session.optionsShown
-      ? '\n🆘 المساعدة الأساسية مفعّلة لهذا السؤال.'
-      : '\n💡 للمساعدة: *خيارات* بالرد على رسالة هذا السؤال.')
-    : '\n🚫 لا تتوفر خيارات في هذه المرحلة.';
+      ? ''
+      : `\n💡 المساعدة المتاحة الآن: *خيارات* — التكلفة: *${competitionPrices.OPTION_COSTS[stage]} ${currency.name}* بالرد على رسالة هذا السؤال.`)
+    : '\n🚫 لا تتوفر مساعدات في هذه المرحلة.';
   const removeLine = session.removeAvailable
-    ? '\n🗑️ لحذف خيار خاطئ واحد: *حذف_خيار* بالرد على رسالة هذا السؤال.'
+    ? `\n🗑️ المساعدة التالية: حذف خيار خاطئ واحد — التكلفة: *${competitionPrices.REMOVE_OPTION_COSTS[stage]} ${currency.name}* بالرد على رسالة هذا السؤال.`
     : '';
   return `╭━━━〔 🏆 المسابقة الكبرى 〕━━━╮\n┃ المرحلة: *${stage}/4*\n┃ السؤال: *${session.questionNumber}/${config.TOTAL_QUESTIONS}*\n┃ ⏱️ مهلة الإجابة: *دقيقتان*\n╰━━━━━━━━━━━━━━━━━━━━━━╯\n\n${progress}\n\n🧠 *${q.category || 'عام'}*\n\n❓ ${q.question}${options}${helpLine}${removeLine}\n\n↩️ *أجب فقط بالرد على رسالة هذا السؤال.*${extra ? `\n\n${extra}` : ''}`;
 }

@@ -121,9 +121,9 @@ function gameText(game) {
   if (game.hints >= 1) hints.push(game.hint1);
   if (game.hints >= 2) hints.push(game.hint2);
   const options = [];
-  if (game.hints < 1) options.push(`🔎 الدليل الأول: ${currency.amount(HINT_COSTS[0])} — اكتب *دليل* بالرد على رسالة اللعبة`);
-  if (game.hints < 2) options.push(`🔎 الدليل الثاني: ${currency.amount(HINT_COSTS[1])} — اكتب *دليل* بالرد على رسالة اللعبة`);
-  return `🎯 *لعبة «خمن»*\n\n${drawing(game.wrong)}\n\n🔤 الكلمة: ${maskWord(game.word, game.guessed)}\n\n💡 *الدليل الابتدائي:* ${game.initialHint}\n${game.hints >= 1 ? `💡 *الدليل الأول:* ${game.hint1}\n` : ''}${game.hints >= 2 ? `💡 *الدليل الثاني:* ${game.hint2}\n` : ''}\n❌ الأخطاء: *${game.wrong}/${MAX_WRONG}*\n💰 رسوم البداية: *${currency.amount(COST)}*\n🏆 الجائزة عند الفوز: *${currency.amount(REWARD)}*\n\n${options.join('\n') || '✍️ أرسل حرفًا أو الكلمة كاملة.'}`;
+  if (game.hints === 0) options.push(`🔎 الدليل الأول: ${currency.amount(HINT_COSTS[0])} — اكتب *دليل* بالرد على رسالة اللعبة`);
+  else if (game.hints === 1) options.push(`🔎 الدليل الثاني: ${currency.amount(HINT_COSTS[1])} — اكتب *دليل* بالرد على رسالة اللعبة`);
+  return `🎯 *لعبة «خمن»*\n\n🔤 الكلمة: ${maskWord(game.word, game.guessed)}\n\n💡 *الدليل الابتدائي:* ${game.initialHint}\n${game.hints >= 1 ? `💡 *الدليل الأول:* ${game.hint1}\n` : ''}${game.hints >= 2 ? `💡 *الدليل الثاني:* ${game.hint2}\n` : ''}\n❌ الأخطاء: *${game.wrong}/${MAX_WRONG}*\n💰 رسوم البداية: *${currency.amount(COST)}*\n🏆 الجائزة عند الفوز: *${currency.amount(REWARD)}*\n\n${options.join('\n') || '✍️ أرسل حرفًا أو الكلمة كاملة.'}`;
 }
 
 async function startGuess(sock, chatId, userId, message) {

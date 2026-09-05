@@ -55,6 +55,22 @@ async function searchWikimedia(query) {
 // Wikimedia can occasionally return a valid search response whose first file is
 // unavailable for direct download. Wikipedia thumbnails provide a second reliable
 // source without requiring an API key.
+
+async function searchOpenverse(query) {
+  const response = await axios.get('https://api.openverse.org/v1/images/', {
+    timeout: 20000,
+    params: { q: query, page_size: 20, mature: false },
+    headers: { 'User-Agent': `LeoBot/${settings.version} image-search` },
+  });
+  const results = Array.isArray(response.data?.results) ? response.data.results : [];
+  return results.map(item => ({
+    title: item.title || item.creator || 'Image',
+    url: item.thumbnail || item.url,
+    mime: item.filetype ? `image/${item.filetype}` : 'image/*',
+    source: 'Openverse',
+  })).filter(item => item.url);
+}
+
 async function searchWikipedia(query, lang = 'ar') {
   const response = await axios.get(`https://${lang}.wikipedia.org/w/api.php`, {
     timeout: 20000,
@@ -127,6 +143,8 @@ module.exports = async function imageSearchCommand(sock, chatId, message, userId
         if (translatedQuery !== query) await addSearch(searchWikimedia, translatedQuery);
         await addSearch(searchWikipedia, query, /[\u0600-\u06ff]/.test(query) ? 'ar' : 'en');
         if (translatedQuery !== query) await addSearch(searchWikipedia, translatedQuery, 'en');
+        await addSearch(searchOpenverse, query);
+        if (translatedQuery !== query) await addSearch(searchOpenverse, translatedQuery);
         const seen = new Set();
         const candidates = searches.filter(item => {
           if (!item.url || seen.has(item.url)) return false;

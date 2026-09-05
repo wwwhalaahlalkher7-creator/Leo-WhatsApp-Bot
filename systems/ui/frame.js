@@ -72,7 +72,7 @@ function createLeoFrame(title, content = '', options = {}) {
   const rightBars = Math.max(2, availableBars - leftBars);
   const top = `╮${'━'.repeat(leftBars)}〔 ${safeTitle} 〕${'━'.repeat(rightBars)}╭`;
   const bottom = `╯${'━'.repeat(20)}╰`;
-  const innerWidth = Math.max(8, 20);
+  const innerWidth = Math.max(8, 34);
   const lines = String(content || '').split(/\r?\n/).flatMap(line => wrapLine(line, innerWidth));
   const body = lines.map(line => `┃${line ? ` ${line}` : ''}`).join('\n');
   return `${top}\n${body}\n${bottom}`;

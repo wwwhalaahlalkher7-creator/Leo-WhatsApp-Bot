@@ -35,11 +35,8 @@ async function bankCommand(sock, chatId, userId, message, economy = null) {
     const lines = history.length
       ? history.map((tx, i) => `${i + 1}. ${tx.type === 'credit' ? '🟢 +' : '🔴 -'}${tx.amount} — ${tx.reason==='game:trivia:summary'?'المسابقة':economy.formatReason(tx.reason)}`).join('\n')
       : 'لا توجد عمليات مسجلة بعد.';
-    const rewardAt = q => Object.entries(competitionPrices.QUESTION_REWARDS).filter(([n]) => Number(n) <= q).reduce((sum, [, value]) => sum + Number(value || 0), 0);
-    const questionCostText = `Q1–5 = ${competitionPrices.QUESTION_COSTS[1]} لكل سؤال | Q6–9 = ${competitionPrices.QUESTION_COSTS[6]} لكل سؤال | Q10 = ${competitionPrices.QUESTION_COSTS[10]} | Q11–14 = ${competitionPrices.QUESTION_COSTS[11]} لكل سؤال | Q15 = ${competitionPrices.QUESTION_COSTS[15]} | Q16–20 = ${competitionPrices.QUESTION_COSTS[16]} لكل سؤال.`;
-    const contestHelp = `🏆 *المسابقة الكبرى*\n\n20 سؤالًا — 4 مراحل — الجائزة الكبرى *${currency.amount(rewardAt(20))}*.\n\n🛡️ نقاط الأمان: Q1 = ${rewardAt(1)} | Q5 = ${rewardAt(5)} | Q10 = ${rewardAt(10)} | Q15 = ${rewardAt(15)}.\n💰 تكاليف الأسئلة: ${questionCostText}\n🆘 المساعدة الأساسية: المرحلة 1 = ${competitionPrices.OPTION_COSTS[1]}، المرحلة 2 = ${competitionPrices.OPTION_COSTS[2]}، المرحلة 3 = ${competitionPrices.OPTION_COSTS[3]}.\n🗑️ حذف خيار خاطئ بعد المساعدة: المرحلة 2 = ${competitionPrices.REMOVE_OPTION_COSTS[2]}، المرحلة 3 = ${competitionPrices.REMOVE_OPTION_COSTS[3]}.\n⏱️ مهلة الإجابة: دقيقتان. عدم الإجابة = خسارة.\n🚪 المغادرة الاختيارية أثناء السؤال تمنح جائزة آخر سؤال تمت إجابته، مع مهلة 15 دقيقة.\n🛡️ عند الخسارة أو عدم اتخاذ قرار في نقطة الأمان خلال دقيقتين: تبقى آخر جائزة مضمونة، ومهلة إعادة اللعب 5 دقائق.\n\n${Object.entries(competitionConfig.STAGES).map(([stage, spec]) => `المرحلة ${stage}: Q${spec.from}–Q${spec.to}`).join(' | ')}`;
     return sock.sendMessage(chatId, {
-      text: `🏦 *بنك Leo*\n\n💰 *رصيدك:* ${currency.balance(balance)}\n\n📒 *آخر العمليات:*\n${lines}\n\n${contestHelp}\n\n💡 التحويل: *.تحويل @العضو المبلغ*\n💡 سجل المسابقة: *.سجل المسابقة*\n💡 كسب الرصيد: *.عمل*`
+      text: `🏦 *بنك Leo*\n\n💰 *رصيدك:* ${currency.balance(balance)}\n\n📒 *آخر العمليات:*\n${lines}\n\n💡 التحويل: *.تحويل @العضو المبلغ*\n💡 سجل العمليات: *.سجل*\n💡 كسب الرصيد: *.عمل*`
     }, { quoted: message });
   } catch (error) {
     console.error('[BANK]', error?.message || error);
