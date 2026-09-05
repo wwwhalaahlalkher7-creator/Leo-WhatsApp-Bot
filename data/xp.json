@@ -1,13 +1,13 @@
 {
   "users": {
     "audit-xp-user": {
-      "xp": 25,
+      "xp": 100,
       "createdAt": 1788549969648,
-      "updatedAt": 1788549969648,
+      "updatedAt": 1788590860154,
       "lastGain": {
         "amount": 25,
         "reason": "test",
-        "at": 1788549969648
+        "at": 1788590860154
       }
     }
   }

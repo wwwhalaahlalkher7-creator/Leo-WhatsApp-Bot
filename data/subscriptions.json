@@ -26,11 +26,11 @@
     "audit-sub-user": {
       "plan": "ultra",
       "startedAt": 1788549969653,
-      "expiresAt": 1788549969689,
-      "updatedAt": 1788549969653,
+      "expiresAt": 1788590860228,
+      "updatedAt": 1788590860157,
       "test": true,
-      "lastDailyRewardDay": "2026-09-04",
-      "lastDailyRewardAt": 1788549969685
+      "lastDailyRewardDay": "2026-09-05",
+      "lastDailyRewardAt": 1788590860226
     }
   }
 }

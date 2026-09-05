@@ -1,6 +1,6 @@
 {
   "name": "leo-whatsapp-bot",
-  "version": "1.37.3",
+  "version": "1.37.6",
   "description": "Leo Bot — Arabic-first WhatsApp entertainment, assistant and AI bot",
   "main": "index.js",
   "scripts": {
@@ -79,7 +79,8 @@
     "ytdl-core": "^4.11.5",
     "@distube/ytdl-core": "^4.16.12",
     "btch-downloader": "^6.3.6",
-    "node-edge-tts": "^1.2.10"
+    "node-edge-tts": "^1.2.10",
+    "onnxruntime-node": "^1.29.0"
   },
   "overrides": {
     "jimp": "^1.6.0"

@@ -1,3 +1,28 @@
+# v1.37.6 — Local AI Upscale
+
+- إزالة الاعتماد على Free.ai من أمر `.تحسين`.
+- إضافة Real-ESRGAN General x4v3 محليًا عبر ONNX Runtime على Railway، بدون API Key أو تكلفة لكل صورة.
+- تنزيل نموذج Real-ESRGAN بحجم يقارب 4.87MB عند أول استخدام مع تحقق SHA-256 وتثبيت الإصدار.
+- معالجة الصور الكبيرة على دفعات Tiles لتقليل استهلاك الذاكرة على موارد Railway.
+- إبقاء Sharp كـ fallback محلي عند تعذر تشغيل نموذج الذكاء الاصطناعي.
+- عدم تغيير بقية أوامر البوت أو اقتصاد Neurons.
+
+# v1.37.5 — Free.ai Upscaler
+
+- استبدال Stability AI في `.تحسين` بـ Free.ai Standard (Real-ESRGAN).
+- استخدام رصيد Free.ai المجاني اليومي المعلن: 30,000 token/day، مع 500 token لكل صورة Real-ESRGAN.
+- دعم 4× AI Upscaling عبر واجهة `/v1/image/upscale/`.
+- إضافة `FREE_AI_API_KEY` بدل `STABILITY_API_KEY`.
+- الإبقاء على Sharp كـ fallback محلي عند تعذر خدمة الذكاء الاصطناعي.
+
+# v1.37.4 — AI Image Upscaling
+
+- استبدال الاعتماد الأساسي على PrinceTechn في `.تحسين` بـ Stability AI Fast Upscaler.
+- إضافة `STABILITY_API_KEY` بدل `PRINCE_API_KEY`.
+- استخدام رفع دقة AI حقيقي حتى 4x مع تجهيز الصور لتوافق حدود الخدمة.
+- الإبقاء على Sharp كمسار احتياطي محلي عند غياب المفتاح أو تعذر الخدمة.
+- الحفاظ على واجهة `.تحسين` واقتصاد الأمر دون تغيير.
+
 # v1.37.3 — Image Enhancement & Poetry Provider Cleanup
 
 - جعل خدمة تحسين الصور الخارجية (PrinceTechn) المسار الأساسي عند توفر `PRINCE_API_KEY` مع تحسين التحقق من الناتج.
