@@ -8,7 +8,7 @@
     "start:optimized": "node --max-old-space-size=512 --optimize-for-size --gc-interval=100 index.js",
     "install:panel": "npm install --legacy-peer-deps",
     "install:force": "npm install --force",
-    "test": "node scripts-syntax-check.js && node scripts-registry-audit.js && node scripts-retired-commands-audit.js && node scripts-help-registry-audit.js",
+    "test": "node scripts-syntax-check.js && node scripts-registry-audit.js && node scripts-help-registry-audit.js && node scripts-owner-lock-audit.js",
     "test:providers": "node scripts-provider-check.js",
     "providers:health": "node scripts-provider-health.js",
     "providers:reset": "node -e \"require('./lib/providers/core/health').reset(); console.log('Provider circuit state reset')\"",
@@ -28,7 +28,6 @@
     "test:ai-evaluation": "node scripts-ai-evaluation-suite.js",
     "test:ai-production": "node scripts-ai-production-audit.js",
     "audit:help": "node scripts-help-registry-audit.js",
-    "audit:retired": "node scripts-retired-commands-audit.js",
     "test:storage": "node scripts-storage-test.js",
     "test:economy-paid": "node scripts-economy-paid-test.js",
     "test:interaction": "node scripts-interaction-test.js",
@@ -41,7 +40,8 @@
     "test:provider-normalization": "node scripts-provider-normalization-test.js",
     "test:provider-retry": "node scripts-provider-retry-test.js",
     "test:command-observability": "node scripts-command-observability-test.js",
-    "test:event-modules": "node scripts-event-modules-test.js"
+    "test:event-modules": "node scripts-event-modules-test.js",
+    "audit:owner-lock": "node scripts-owner-lock-audit.js"
   },
   "keywords": [
     "whatsapp-bot"

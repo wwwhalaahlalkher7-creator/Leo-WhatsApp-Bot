@@ -54,7 +54,6 @@ module.exports = {
     'Only owner/sudo can use .ban in private chat.':'❌ أمر `.حظر` في الخاص للمالك أو الـSudo فقط.',
     'Only owner/sudo can use .unban in private chat.':'❌ أمر `.إلغاء الحظر` في الخاص للمالك أو الـSudo فقط.',
     'Failed to update bot access mode':'❌ تعذر تحديث وضع وصول البوت.',
-    'Only owner/sudo can use anticall.':'❌ أمر `anticall` للمالك أو الـSudo فقط.',
     'Please specify a city, e.g., .weather London':'🌍 اكتب اسم المدينة، مثال: `.طقس الخرطوم`',
     'Please provide a valid position number for Tic-Tac-Toe move.':'🎮 اكتب رقم خانة صحيح لحركتك في إكس-أو.',
     'Please guess a letter using .guess <letter>':'🔤 خمن حرفًا باستخدام `.خمن <الحرف>`.',
@@ -189,10 +188,8 @@ module.exports = {
     },
 
     add: { usage:'📌 استخدم `.إضافة <رقم>`.', success:'✅ تمت محاولة إضافة {number} إلى المجموعة.', privacy:'🔒 تعذر الإضافة بسبب إعدادات خصوصية الرقم.', failed:'❌ تعذر إضافة الرقم. تأكد من الرقم وصلاحيات البوت.' },
-    vcard: { reply:'📌 رد على رسالة الشخص أولًا.', name:'✍️ اكتب اسم جهة الاتصال.', invalid:'❌ تعذر استخراج رقم جهة الاتصال.' },
     apk: { usage:'📌 مثال: `.تطبيق WhatsApp`', searching:'🔍 جاري البحث عن التطبيقات...', resultsTitle:'🔎 نتائج البحث عن APK:', chooseItem:'اكتب `.تطبيق {number}` لاختيار هذا التطبيق.', choose:'📌 اختر رقمًا باستخدام `.تطبيق <الرقم>` أو `.تطبيق تحميل <الرقم>`.', expiry:'⏳ النتائج صالحة لمدة 10 دقائق.', confirm:'📦 {name}\n🏷️ الإصدار: {version}\n📦 الحجم: {size}\n🌐 المصدر: {source}\n\nهل تريد تحميل هذا التطبيق؟\n\nاكتب `.تطبيق تأكيد` للمتابعة أو `.تطبيق إلغاء` للإلغاء.', downloading:'⬇️ جاري التحقق من ملف APK وتحميله...', cancelled:'❌ تم إلغاء جلسة بحث APK.', expired:'⏰ انتهت صلاحية نتائج البحث. أعد البحث مرة أخرى.', invalidSelection:'❌ رقم النتيجة غير صحيح. اختر رقمًا من النتائج.', notFound:'❌ لم يتم العثور على APK لـ "{query}".', caption:'📥 APK\nالتطبيق: {name}\nالإصدار: {version}\nالمصدر: {source}\n\n⚠️ ثبّت الملفات من مصادر تثق بها.', failed:'❌ تعذر البحث أو تحميل ملف APK حاليًا.' },
     logo: { usage:'🎨 الأساليب المتاحة:\n{styles}\n\nمثال: `.لوجو naruto Leo`', processing:'🎨 جاري إنشاء التصميم...', caption:'🎨 تصميم ليو — {style}', failed:'❌ تعذر إنشاء التصميم حاليًا.' },
-    fancy: { usage:'✨ استخدم `.زخرفة <1-{max}> <النص>`. مثال: `.زخرفة 2 LeoBot`' },
     "ban": {
       "botAdmin": "❌ لازم يكون ليو مشرفًا عشان يستخدم `.حظر`.",
       "admins": "❌ أمر `.حظر` للمشرفين فقط.",
@@ -295,7 +292,6 @@ module.exports = {
     sticker: { usage: '📌 رد على صورة/فيديو باستخدام `.ملصق`، أو أرسل الوسائط مع الأمر.', failed: '❌ تعذر إنشاء الملصق. جرّب مرة ثانية.' },
     crop: { usage: '📌 رد على صورة/فيديو/ملصق باستخدام `.crop`.', failed: '❌ تعذر قص الملصق. جرّب استخدام صورة.' },
     telegram: { usage: '⚠️ أرسل رابط حزمة ملصقات Telegram.\n\nمثال: `.tg https://t.me/addstickers/Porcientoreal`', invalid: '❌ الرابط غير صالح. تأكد أنه رابط حزمة ملصقات Telegram.', failed: '❌ تعذر معالجة ملصقات Telegram. تأكد من الرابط وأن الحزمة موجودة وعامة.' },
-    meme: { caption: '> هذا ميم Cheems بتاعنا 🐕', failed: '❌ تعذر جلب الميم. جرّب لاحقًا.' },
     take: { usage: '❌ رد على ملصق باستخدام `.take <اسم_الحزمة>`', downloadFailed: '❌ تعذر تنزيل الملصق.', failed: '❌ حصل خطأ أثناء معالجة الملصق.' },
     gif: { termRequired: '📌 اكتب كلمة للبحث عن GIF.', notFound: '❌ ما لقيت GIF مناسب لبحثك.', failed: '❌ تعذر جلب GIF. جرّب مرة ثانية لاحقًا.' },
     attp: { textRequired: '📌 اكتب النص بعد أمر `.نص ملصق`.', failed: '❌ تعذر إنشاء الملصق.' },
@@ -333,15 +329,12 @@ module.exports = {
     ship: '💖 نسبة التوافق بين {first} و{second}: {percent}%\nبالتوفيق لكما! 😄'
   },
   fun: {
-    joke: '😂 تعذر جلب نكتة حاليًا. حاول لاحقًا.',
     fact: '🧠 تعذر جلب معلومة حاليًا. حاول لاحقًا.',
     quote: '💬 تعذر جلب اقتباس حاليًا. حاول لاحقًا.',
     truth: '🎲 تعذر جلب سؤال صراحة حاليًا. حاول لاحقًا.',
     dare: '🎲 تعذر جلب تحدٍ حاليًا. حاول لاحقًا.',
     shayari: '✍️ تعذر جلب شعر/شايَري حاليًا. حاول لاحقًا.'
   },
-
-  language: { title:'🌐 اللغة', current:'اللغة الحالية: العربية', usage:'الاستخدام: .language ar أو .language en', changed:'تم تغيير لغة البوت إلى العربية 🇸🇩', invalid:'❌ اللغة المتاحة حاليًا: ar أو en.' },
 
   download: {
     generic: { usage:'🔗 أرسل رابط YouTube أو TikTok أو Instagram أو Facebook أو رابط ملف وسائط مباشر.', processing:'⏳ جاري تحميل الوسائط...', caption:'📥 تم التحميل بواسطة LeoBot\nالرابط: {url}', failed:'❌ تعذر تحميل الوسائط من هذا الرابط حاليًا.' },
@@ -380,10 +373,8 @@ module.exports = {
   },
   registry: {
     add: { description: 'إضافة رقم إلى المجموعة.', method: 'استخدم `.إضافة <الرقم>` داخل المجموعة، ويتطلب الأمر صلاحيات الإدارة.' },
-    vcard: { description: 'إنشاء بطاقة جهة اتصال من رسالة شخص تم الرد عليها.', method: 'رد على رسالة الشخص ثم استخدم `.جهة اتصال <الاسم>`.' },
     apk: { description: 'البحث عن تطبيق Android وإرسال ملف APK.', method: 'استخدم `.تطبيق <اسم التطبيق>`.' },
     logo: { description: 'إنشاء شعار نصي باستخدام أحد الأنماط المتاحة.', method: 'استخدم `.لوجو <النمط> <النص>`، مثل `.لوجو ناروتو Leo`.' },
-    fancy: { description: 'تحويل النص إلى أنماط زخرفية متعددة.', method: 'استخدم `.زخرفة <1-4> <النص>`.' },
     download: { description: 'تحميل الوسائط من الروابط المدعومة عبر نظام موحد مع مزودات احتياطية.', method: 'استخدم `.تحميل <الرابط>`.' },
     pdf: { description: 'تحويل ومعالجة ملفات PDF وWord وPowerPoint وExcel والصور.', method: 'أرسل الملف مع `.pdf` أو رد بالأمر على الملف.' }
   }

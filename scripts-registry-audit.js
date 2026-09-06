@@ -7,14 +7,12 @@
  */
 const fs = require('fs');
 const path = require('path');
-const { RETIRED_COMMANDS } = require('./lib/retired-commands');
 
 const root = __dirname;
 const commandsDir = path.join(root, 'commands');
 const helperModules = new Set([
   'help', 'registry-init', 'registry-core', 'registry-advanced', 'legacy-registry', 'registry-phase2d',
-  'index', 'tagall', 'tagnotadmin',
-  'autotyping'
+  'index', 'tagall', 'tagnotadmin'
 ]);
 
 const moduleAliases = new Map([
@@ -31,10 +29,6 @@ const moduleAliases = new Map([
 
 function normalize(value) {
   return String(value || '').trim().toLowerCase().replace(/^\./, '');
-}
-function isRetiredModule(file) {
-  const moduleName = normalize(file.replace(/\.js$/, ''));
-  return RETIRED_COMMANDS.has(moduleName);
 }
 function isLikelyCommandModule(file) {
   return file.endsWith('.js') && !file.startsWith('.') && !helperModules.has(file.slice(0, -3));
@@ -65,8 +59,7 @@ for (const match of registryText.matchAll(/(?:aliases|localizedAliases)\s*:\s*\[
 }
 
 const allFiles = fs.readdirSync(commandsDir).filter(isLikelyCommandModule);
-const retiredModules = allFiles.filter(isRetiredModule).map(f => f.slice(0, -3));
-const files = allFiles.filter(f => !isRetiredModule(f)).map(f => f.slice(0, -3));
+const files = allFiles.map(f => f.slice(0, -3));
 const unregistered = [];
 for (const file of files) {
   const expected = canonicalNamesForModule(file);
@@ -90,12 +83,9 @@ const report = [
   '# LeoBot Registry Completeness Audit', '',
   `Registered commands: ${names.size}`,
   `Active command modules inspected: ${files.length}`,
-  `Retired command modules ignored: ${retiredModules.length}`,
   `Unregistered active command modules: ${unregistered.length}`,
   `Duplicate aliases: ${duplicateAliases.length}`,
   `Metadata issues: ${metadataIssues.length}`, '',
-  '## Retired modules ignored',
-  ...(retiredModules.length ? retiredModules.map(x => `- ${x}`) : ['- None']), '',
   '## Unregistered active modules',
   ...(unregistered.length ? unregistered.map(x => `- ${x}`) : ['- None']), '',
   '## Duplicate aliases',
@@ -103,7 +93,7 @@ const report = [
   '## Metadata issues',
   ...(metadataIssues.length ? metadataIssues.map(x => `- ${x}`) : ['- None']), '',
   '## Result',
-  failures ? '❌ Audit found active Registry issues.' : '✅ Registry is complete and consistent; retired modules are excluded intentionally.'
+  failures ? '❌ Audit found active Registry issues.' : '✅ Registry is complete and consistent.'
 ].join('\n');
 console.log(report);
 process.exitCode = failures ? 1 : 0;

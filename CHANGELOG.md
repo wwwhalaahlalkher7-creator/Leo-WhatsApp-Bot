@@ -1,3 +1,11 @@
+# LeoBot v1.37.6 — Owner Command Lock Expansion
+
+- توسيع سجل الأوامر المقفلة باعتماد المالك إلى 32 أمرًا.
+- إضافة القائمة الآلية `lib/owner-lock.js` وربطها بالـCommand Registry لتمييز الأوامر المقفلة تلقائيًا.
+- إضافة `scripts-owner-lock-audit.js` وفحص `npm run audit:owner-lock` للتأكد من وجود جميع الأوامر المقفلة وعدم خروج Registry عن القائمة المعتمدة.
+- تحديث `OWNER-NOTICE.md` ليكون المرجع الرسمي للقائمة الجديدة وسياسة القفل.
+- لا يغيّر هذا التحديث سلوك الأوامر المقفلة؛ الهدف هو تثبيت حالة الاعتماد وحمايتها من التعديلات غير المصرح بها.
+
 # LeoBot v1.37.6 — Owner-approved refinements
 
 - إصلاح `.بروفايل` / `.مستوى`: المنشن أو الرد يعرض بطاقة العضو المستهدف بدل المرسل.
@@ -50,7 +58,6 @@
 # v1.37.2 — Command Cleanup
 
 - إزالة كاملة لأمر Emoji Mix واعتماد Tenor المرتبط به.
-- إزالة بقايا أوامر Goodnight / Rose Day / Flirt المتقاعدة.
 - تنظيف زر Rose Day القديم من أمر الشعر.
 - تنظيف رسائل الترجمة والمتغيرات البيئية الخاصة بالأوامر المحذوفة.
 - تدقيق Registry وRetired Commands وعدم وجود أوامر فعالة غير مسجلة أو aliases متعارضة.
@@ -277,7 +284,6 @@
 ## 1.35.4
 
 - Updated the public command aliases to the new Arabic-first list requested for v1.35.4.
-- Retired six user-facing commands: goodnight, roseday, emojimix, flirt, anticall and mention.
 - Help now uses the first requested public Arabic alias as the displayed command name.
 - Resolved the requested `تنزيل` alias collision by reserving it for media download; demote remains available as `خفض`.
 - Hardened the PDF bridge to parse the final JSON payload even when the Python process emits harmless stdout diagnostics.
@@ -288,10 +294,8 @@
 - Stabilized RemoveBG registry routing through an explicit command function to avoid legacy registry binding errors.
 
 1.35.3
-- Retired the obsolete interaction/reaction command family: poke, cry, kiss, pat, hug, wink, facepalm.
 - Added a hard retirement guard so explicitly deleted commands cannot be re-registered accidentally.
 - Removed stale compatibility aliases for deleted share/upload commands.
-- Kept internal autotyping/reaction infrastructure where it is still used by the bot runtime; the retired user commands are no longer exposed or routable.
 - Added a retired-command audit to prevent regressions.
 
 
@@ -330,3 +334,10 @@
 - Added explicit interaction validation in the command registry dispatch path.
 - Added fail-closed validation for commands that explicitly declare media, reply, or mention requirements.
 - Added interaction regression tests.
+
+## 2026-09-06 — Command review batch
+- اعتماد `.اقتباس` و`.أخبار` و`.التوب` وإضافتها إلى قائمة الأوامر المقفلة.
+- حذف أمر `.حالة` من الـCommand Registry بناءً على قرار المالك.
+- إزالة alias `.رصيدي` مع الإبقاء على `.رصيد`.
+- تطوير `.أخبار`: إزالة الروابط من القائمة، دعم البحث عبر `.أخبار <الخبر>`, وإضافة عرض الخبر المختار بشكل مكبّر عند الرد برقم الخبر.
+- إصلاح `.معلومات المجموعة` مع معالجة أكثر أمانًا لمعرفات المشاركين والمالك ورسالة الخطأ.

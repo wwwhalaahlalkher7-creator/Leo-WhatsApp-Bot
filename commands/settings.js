@@ -17,10 +17,8 @@ async function settingsCommand(sock, chatId, message) {
     const mode = readJsonSafe('bot-mode.json', { isPublic: true });
     const autoStatus = readJsonSafe('autoStatus.json', { enabled: false });
     const autoread = readJsonSafe('autoread.json', { enabled: false });
-    const autotyping = readJsonSafe('autotyping.json', { enabled: false });
     const pmblocker = readJsonSafe('pmblocker.json', { enabled: false });
-    const anticall = readJsonSafe('anticall.json', { enabled: false });
-    const userGroupData = readJsonSafe('userGroupData.json', { antilink: {}, antibadword: {}, welcome: {}, goodbye: {}, chatbot: {}, antitag: {}, autoReaction: false });
+    const userGroupData = readJsonSafe('userGroupData.json', { antilink: {}, antibadword: {}, welcome: {}, goodbye: {}, chatbot: {}, antitag: {} });
     const groupId = isGroup ? chatId : null;
     const g = groupId ? {
       antilink: userGroupData.antilink?.[groupId], antibadword: userGroupData.antibadword?.[groupId],
@@ -32,10 +30,7 @@ async function settingsCommand(sock, chatId, message) {
       `• وضع الاستخدام: ${mode.isPublic ? 'عام 🌐' : 'خاص 🔐'}`,
       `• الحالة التلقائية: ${yn(autoStatus.enabled)}`,
       `• القراءة التلقائية: ${yn(autoread.enabled)}`,
-      `• الكتابة التلقائية: ${yn(autotyping.enabled)}`,
       `• حظر الخاص: ${yn(pmblocker.enabled)}`,
-      `• منع المكالمات: ${yn(anticall.enabled)}`,
-      `• الرد التلقائي: ${yn(Boolean(userGroupData.autoReaction))}`,
     ];
     if (groupId) {
       lines.push('', `📌 *المجموعة:* ${groupId}`,

@@ -12,8 +12,7 @@ const menuCommand = require('./menu');
 const ownerCommand = require('./owner');
 const quoteCommand = require('./quote');
 const factCommand = require('./fact');
-const newsCommand = require('./news');
-const aliveCommand = require('./alive');
+const { newsCommand } = require('./news');
 const { bankCommand, transferCommand, historyCommand } = require('./bank');
 const workCommand = require('./work');
 const levelCommand = require('./level');
@@ -27,10 +26,9 @@ add({ hidden:true, name:'menu', aliases:['cmd','list'], localizedAliases:['ال�
 add({ name:'owner',aliases:[], localizedAliases:['المالك'], localizedName:'المالك', category:'utility', usage:'.المالك', description:'عرض معلومات مالك البوت.', method:'أرسل `.المالك`.', ownerOnly:false, execute:(sock, chatId) => ownerCommand(sock, chatId) });
 add({ name:'quote',aliases:[], localizedAliases:['إقتباس','اقتباس'], localizedName:'إقتباس', category:'fun', usage:'.اقتباس', description:'إرسال اقتباس قصير.', method:'أرسل `.اقتباس`.', execute:quoteCommand });
 add({ name:'fact',aliases:[], localizedAliases:['معلومة','معلومه'], localizedName:'معلومة', category:'fun', usage:'.معلومة', description:'إرسال معلومة مفيدة أو طريفة.', method:'أرسل `.معلومة`.', execute:factCommand });
-add({ name:'news',aliases:[], localizedAliases:['أخبار','اخبار'], localizedName:'أخبار', category:'utility', usage:'.أخبار', description:'جلب آخر الأخبار المتاحة.', method:'أرسل `.أخبار`.', execute:newsCommand });
+add({ name:'news',aliases:[], localizedAliases:['أخبار','اخبار'], localizedName:'أخبار', category:'utility', usage:'.أخبار [الخبر]', description:'جلب آخر الأخبار، مع إمكانية البحث عن خبر معين وعرض الخبر المختار بشكل مكبّر بالرد على رقمه.', method:'أرسل `.أخبار` لآخر الأخبار، أو `.أخبار <الخبر>` للبحث، ثم رد برقم الخبر لعرضه بشكل مكبّر.', execute:(sock,chatId,message,args,ctx)=>newsCommand(sock,chatId,message,args,ctx) });
 add({ name:'topmembers',aliases:[], localizedAliases:['التوب','توب الأعضاء'], localizedName:'التوب', category:'level', usage:'.توب_الأعضاء', description:'عرض ترتيب الأعضاء حسب النشاط المسجل.', method:'استخدم الأمر داخل المجموعة.', groupOnly:true, execute:(sock, chatId, message, args, ctx) => topMembers(sock, chatId, ctx.isGroup) });
-add({ name:'alive', aliases:[], localizedAliases:['حالة'], localizedName:'حالة', category:'utility', usage:'.حالة', description:'عرض حالة LeoBot ومعلومات التشغيل الأساسية.', method:'أرسل `.حالة`.', execute:aliveCommand });
-add({ name:'balance',aliases:[], localizedAliases:['رصيد','رصيدي'], localizedName:'رصيد', category:'economy', usage:'.رصيد [بالرد على عضو]', description:'عرض رصيد حسابك الحالي أو رصيد عضو بالرد على رسالته.', method:'أرسل `.رصيد`، أو رد على رسالة العضو بالأمر.', execute:async (sock, chatId, message, args, ctx) => {
+add({ name:'balance',aliases:[], localizedAliases:['رصيد'], localizedName:'رصيد', category:'economy', usage:'.رصيد [بالرد على عضو]', description:'عرض رصيد حسابك الحالي أو رصيد عضو بالرد على رسالته.', method:'أرسل `.رصيد`، أو رد على رسالة العضو بالأمر.', execute:async (sock, chatId, message, args, ctx) => {
   const inputSystem = require('../systems/input');
   const mentioned = inputSystem.mentions(message);
   const target = mentioned[0] || inputSystem.replySender(message);

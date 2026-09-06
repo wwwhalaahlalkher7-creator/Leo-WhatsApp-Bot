@@ -7,6 +7,7 @@ const commandRegistry = require('../commands/registry-init');
 const { handleHelpReply } = require('../commands/help');
 const { handlePdfReply, handlePdfImageCollection } = require('../commands/pdf');
 const { handleAnimeReply } = require('../commands/anime');
+const { handleNewsReply } = require('../commands/news');
 const jsonStore = require('../lib/storage');
 const { handleCommandError } = require('../lib/errors/handler');
 const { createLocalizedSock } = require('../lib/localized-sock');
@@ -17,14 +18,11 @@ const ownerCommand = require('../commands/owner');
 const { incrementMessageCount } = require('../commands/topmembers');
 const { handleTicTacToeMove } = require('../commands/tictactoe');
 const { Antilink } = require('../lib/antilink');
-const { handleMentionDetection } = require('../commands/mention');
 const { handleBadwordDetection } = require('../lib/antibadword');
 const { handleChatbotResponse } = require('../commands/chatbot');
 const { handleMessageRevocation, storeMessage } = require('../commands/antidelete');
-const { addCommandReaction } = require('../lib/reactions');
 const { isBotEnabled, isGroupApproved } = require('../lib/access-control');
 const { handleAutoread } = require('../commands/autoread');
-const { handleAutotypingForMessage, showTypingAfterCommand } = require('../commands/autotyping');
 const { handleTagDetection } = require('../commands/antitag');
 const { answerTrivia, isTriviaActive, leaveTrivia } = require('../competition/engine');
 const { guess, isGuessActive } = require('../commands/hangman');
@@ -100,8 +98,8 @@ async function handleMessages(sock, messageUpdate, printLog) {
             const key = match[1].replace(/ـ/g, '');
             const tail = match[2] || '';
             if (key === 'سجل' && /^\s+المسابقة\s*$/i.test(tail)) return '.contest-history';
-            if (key === 'منشن' && /^\s+(تشغيل|شغل|تفعيل|إيقاف|ايقاف|وقف|تعطيل|on|off)\b/i.test(tail)) {
-                value = `.mention${tail}`;
+            if (false) {
+                value = value;
             } else if (key === 'تشغيل' && /^\s+البوت(?:\s|$)/i.test(tail)) {
                 value = `.bot${tail.replace(/^\s+البوت/i, '')}`;
             } else if (key === 'إيقاف' && /^\s+البوت(?:\s|$)/i.test(tail)) {
@@ -123,7 +121,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
             }
             const parts = value.split(/\s+/);
             const command = parts[0];
-            const toggles = new Set(['.chatbot','.welcome','.goodbye','.autostatus','.autoreact','.areact','.autotyping','.autoread','.anticall','.antitag','.mention','.setmention','.antilink','.antibadword']);
+            const toggles = new Set(['.chatbot','.welcome','.goodbye','.autostatus','.autoread','.antitag','.antilink','.antibadword']);
             if (toggles.has(command) && parts[1]) {
                 const arg = parts[1].toLowerCase();
                 if (['تشغيل','شغل','تفعيل','مفعل','نعم','on'].includes(arg)) parts[1] = 'on';
@@ -250,6 +248,8 @@ async function handleMessages(sock, messageUpdate, printLog) {
             if (handledHelpReply) return;
             const handledAnimeReply = await handleAnimeReply(sock, chatId, message, userMessage, senderId);
             if (handledAnimeReply) return;
+            const handledNewsReply = await handleNewsReply(sock, chatId, message, senderId);
+            if (handledNewsReply) return;
         }
 
         // Trivia answers are accepted only when the player replies to the current trivia question.
@@ -295,13 +295,9 @@ async function handleMessages(sock, messageUpdate, printLog) {
         // Non-command messages continue here. PDF menu numbers were already
         // checked above and are accepted only as replies to the active PDF menu.
         if (!userMessage.startsWith('.')) {
-            // Show typing indicator if autotyping is enabled
-            await handleAutotypingForMessage(sock, chatId, userMessage);
-
             if (isGroup) {
                 // Always run moderation features (antitag) regardless of mode
                 await handleTagDetection(sock, chatId, message, senderId);
-                await handleMentionDetection(sock, chatId, message);
 
                 // Only run chatbot in public mode or for owner/sudo
                 if (isPublic || isOwnerOrSudoCheck) {
@@ -330,8 +326,6 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 sock, chatId, message, registryToken, registryArgs, dispatchContext
             );
             if (handled) {
-                await showTypingAfterCommand(sock, chatId);
-                await addCommandReaction(sock, message);
                 if (dispatchContext.commandSucceeded) {
                     try { await afterSuccessfulCommand(sock, chatId, senderId, message, registryToken, require('../systems/economy').createEconomy()); }
                     catch (rewardError) { console.error('[DAILY-REWARD]', rewardError?.message || rewardError); }

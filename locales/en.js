@@ -157,7 +157,6 @@ module.exports = {
     sticker: { usage: '📌 Reply to an image/video with `.sticker`, or send media with the command.', failed: '❌ Failed to create the sticker. Please try again.' },
     crop: { usage: '📌 Reply to an image/video/sticker with `.crop`.', failed: '❌ Failed to crop the sticker. Try an image.' },
     telegram: { usage: '⚠️ Please enter the Telegram sticker URL.\n\nExample: `.tg https://t.me/addstickers/Porcientoreal`', invalid: '❌ Invalid URL. Make sure it is a Telegram sticker pack URL.', failed: '❌ Failed to process Telegram stickers. Check that the URL is correct and the pack is public.' },
-    meme: { caption: '> Here is your Cheems meme! 🐕', failed: '❌ Failed to fetch the meme. Please try again later.' },
     take: { usage: '❌ Reply to a sticker with `.take <packname>`', downloadFailed: '❌ Failed to download the sticker.', failed: '❌ An error occurred while processing the sticker.' },
     gif: { termRequired: '📌 Please provide a search term for the GIF.', notFound: '❌ No GIFs found for your search term.', failed: '❌ Failed to fetch the GIF. Please try again later.' },
     attp: { textRequired: '📌 Please provide text after `.attp`.', failed: '❌ Failed to generate the sticker.' },
@@ -181,7 +180,7 @@ module.exports = {
     mention: '📌 Mention someone or reply to their message first.',
     ship: '💖 Compatibility between {first} and {second}: {percent}%\nGood luck, you two! 😄',
   },
-  fun: { joke: '😂 I could not fetch a joke right now. Try again later.', fact: '🧠 I could not fetch a fact right now. Try again later.', quote: '💬 I could not fetch a quote right now. Try again later.', truth: '🎲 I could not fetch a truth question right now. Try again later.', dare: '🎲 I could not fetch a dare right now. Try again later.', shayari: '✍️ I could not fetch shayari right now. Try again later.' },
+  fun: { fact: '🧠 I could not fetch a fact right now. Try again later.', quote: '💬 I could not fetch a quote right now. Try again later.', truth: '🎲 I could not fetch a truth question right now. Try again later.', dare: '🎲 I could not fetch a dare right now. Try again later.', shayari: '✍️ I could not fetch shayari right now. Try again later.' },
 
   language:{ title:'🌐 Language', current:'Current language: English', usage:'Usage: .language ar or .language en', changed:'Bot language changed to English 🇬🇧', invalid:'❌ Available languages: ar or en.' },
 
