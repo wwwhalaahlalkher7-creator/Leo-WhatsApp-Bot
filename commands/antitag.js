@@ -13,6 +13,11 @@ async function handleAntitagCommand(sock, chatId, userMessage, senderId, isSende
         const prefix = '.';
         const args = userMessage.slice(9).toLowerCase().trim().split(' ');
         const action = args[0];
+        const normalizedAction = ({
+            تشغيل: 'on', شغل: 'on', تفعيل: 'on',
+            إيقاف: 'off', ايقاف: 'off', وقف: 'off', تعطيل: 'off',
+            إعداد: 'set', ضبط: 'set', حالة: 'get',
+        })[action] || action;
 
         if (!action) {
             const usage = t('antitag.usage', '', { prefix });
@@ -20,7 +25,7 @@ async function handleAntitagCommand(sock, chatId, userMessage, senderId, isSende
             return;
         }
 
-        switch (action) {
+        switch (normalizedAction) {
             case 'on':
                 const existingConfig = await getAntitag(chatId, 'on');
                 if (existingConfig?.enabled) {
@@ -45,7 +50,8 @@ async function handleAntitagCommand(sock, chatId, userMessage, senderId, isSende
                     },{quoted :message});
                     return;
                 }
-                const setAction = args[1];
+                const setActionRaw = args[1];
+                const setAction = ({ حذف: 'delete', طرد: 'kick' })[setActionRaw] || setActionRaw;
                 if (!['delete', 'kick'].includes(setAction)) {
                     await sock.sendMessage(chatId, { 
                         text: t('antitag.invalidAction') 
@@ -54,7 +60,7 @@ async function handleAntitagCommand(sock, chatId, userMessage, senderId, isSende
                 }
                 const setResult = await setAntitag(chatId, 'on', setAction);
                 await sock.sendMessage(chatId, { 
-                    text: setResult ? t('antitag.actionSet', '', { action: setAction }) : t('antitag.actionFailed') 
+                    text: setResult ? t('antitag.actionSet', '', { action: ({ delete: 'حذف', kick: 'طرد' })[setAction] || setAction }) : t('antitag.actionFailed') 
                 },{quoted :message});
                 break;
 

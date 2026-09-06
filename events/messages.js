@@ -27,6 +27,7 @@ const { handleTagDetection } = require('../commands/antitag');
 const { answerTrivia, isTriviaActive, leaveTrivia } = require('../competition/engine');
 const { guess, isGuessActive } = require('../commands/hangman');
 const { afterSuccessfulCommand } = require('../systems/daily-reward');
+const { isJidGroup } = require('@whiskeysockets/baileys');
 
 const channelInfo = settings.channelJid && settings.channelName ? {
     contextInfo: {
@@ -75,7 +76,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
         const senderId = message.key.participant || message.key.remoteJid;
         const senderIdAlt = message.key.participantAlt || message.key.remoteJidAlt || null;
         const ownerIdentityCandidates = [senderId, senderIdAlt].filter(Boolean);
-        const isGroup = chatId.endsWith('@g.us');
+        const isGroup = isJidGroup(chatId) || Boolean(message.key.participant && message.key.remoteJid !== message.key.participant);
         const senderIsSudo = await isSudo(senderId) || (senderIdAlt ? await isSudo(senderIdAlt) : false);
         const senderIsOwnerOrSudo = await isOwnerOrSudo(senderId, sock, chatId, senderIdAlt);
         // Private chats are intentionally owner-only. Sudo users retain their
@@ -121,7 +122,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
             }
             const parts = value.split(/\s+/);
             const command = parts[0];
-            const toggles = new Set(['.chatbot','.welcome','.goodbye','.autostatus','.autoread','.antitag','.antilink','.antibadword']);
+            const toggles = new Set(['.chatbot','.welcome','.goodbye','.autoread','.antitag','.antilink']);
             if (toggles.has(command) && parts[1]) {
                 const arg = parts[1].toLowerCase();
                 if (['تشغيل','شغل','تفعيل','مفعل','نعم','on'].includes(arg)) parts[1] = 'on';
@@ -213,7 +214,9 @@ async function handleMessages(sock, messageUpdate, printLog) {
 
                 // Banned users: ignore normal messages/reactions. For commands, warn only once
         // during the current bot process so repeated commands do not cause spam.
-        if (isBanned(senderId) && !userMessage.startsWith('.unban')) {
+        const resolvedBeforeBanGate = commandRegistry.resolveText(userMessage).command;
+        const isUnbanCommand = resolvedBeforeBanGate?.name === 'unban';
+        if (isBanned(senderId) && !isUnbanCommand) {
             if (userMessage.startsWith('.')) {
                 const warnedKey = `${chatId}:${senderId}`;
                 if (!global.__leoBannedCommandWarnings) global.__leoBannedCommandWarnings = new Set();

@@ -48,7 +48,8 @@ async function unbanCommand(sock, chatId, message) {
             } catch {}
         }
         const bannedUsers = store.read('banned', []);
-        const index = bannedUsers.findIndex(id=>id===userToUnban || String(id).split('@')[0].split(':')[0]===String(userToUnban).split('@')[0].split(':')[0]);
+        const numeric = value => String(value || '').split(':')[0].split('@')[0].replace(/[^0-9]/g, '');
+        const index = bannedUsers.findIndex(id => id === userToUnban || numeric(id) === numeric(userToUnban));
         if (index > -1) {
             bannedUsers.splice(index, 1);
             await store.write('banned', bannedUsers);

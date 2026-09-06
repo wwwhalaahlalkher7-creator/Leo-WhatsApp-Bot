@@ -13,6 +13,11 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
         const prefix = '.';
         const args = userMessage.slice(9).toLowerCase().trim().split(' ');
         const action = args[0];
+        const normalizedAction = ({
+            تشغيل: 'on', شغل: 'on', تفعيل: 'on',
+            إيقاف: 'off', ايقاف: 'off', وقف: 'off', تعطيل: 'off',
+            إعداد: 'set', ضبط: 'set', حالة: 'get',
+        })[action] || action;
 
         if (!action) {
             const usage = t('antilink.usage', '', { prefix });
@@ -20,7 +25,7 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
             return;
         }
 
-        switch (action) {
+        switch (normalizedAction) {
             case 'on':
                 const existingConfig = await getAntilink(chatId, 'on');
                 if (existingConfig?.enabled) {
@@ -45,7 +50,8 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
                     }, { quoted: message });
                     return;
                 }
-                const setAction = args[1];
+                const setActionRaw = args[1];
+                const setAction = ({ حذف: 'delete', طرد: 'kick', تحذير: 'warn' })[setActionRaw] || setActionRaw;
                 if (!['delete', 'kick', 'warn'].includes(setAction)) {
                     await sock.sendMessage(chatId, { 
                         text: t('antilink.invalidAction') 
@@ -54,7 +60,7 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
                 }
                 const setResult = await setAntilink(chatId, 'on', setAction);
                 await sock.sendMessage(chatId, { 
-                    text: setResult ? t('antilink.actionSet', '', { action: setAction }) : t('antilink.actionFailed') 
+                    text: setResult ? t('antilink.actionSet', '', { action: ({ delete: 'حذف', kick: 'طرد', warn: 'تحذير' })[setAction] || setAction }) : t('antilink.actionFailed') 
                 }, { quoted: message });
                 break;
 

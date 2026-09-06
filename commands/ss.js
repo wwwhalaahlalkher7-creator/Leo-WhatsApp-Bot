@@ -2,6 +2,37 @@ const { assertPublicHttpUrl } = require('../lib/url-security');
 const { t } = require('../lib/i18n');
 const fetch = require('node-fetch');
 
+async function fetchImage(url, options = {}) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), options.timeoutMs || 60000);
+    try {
+        const response = await fetch(url, { ...options.fetchOptions, signal: controller.signal });
+        if (!response.ok) {
+            const body = await response.text().catch(() => '');
+            throw new Error(`HTTP ${response.status}: ${body.slice(0, 180)}`);
+        }
+        const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+        if (!contentType.startsWith('image/')) throw new Error(`Unexpected content type: ${contentType || 'unknown'}`);
+        const buffer = await response.buffer();
+        if (!buffer.length) throw new Error('Empty screenshot');
+        return buffer;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+async function captureScreenshot(targetUrl) {
+    const primary = await fetchImage('https://webshot.site/api/capture', {
+        timeoutMs: 90000,
+        fetchOptions: {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', accept: 'image/*' },
+            body: JSON.stringify({ url: targetUrl, format: 'png', mode: 'desktop_full' })
+        }
+    });
+    return primary;
+}
+
 async function handleSsCommand(sock, chatId, message, match) {
     if (!match) {
         await sock.sendMessage(chatId, {
@@ -28,16 +59,14 @@ async function handleSsCommand(sock, chatId, message, match) {
         }
         await assertPublicHttpUrl(url);
 
-        // Call the API
-        const apiUrl = `https://api.siputzx.my.id/api/tools/ssweb?url=${encodeURIComponent(url)}&theme=light&device=desktop`;
-        const response = await fetch(apiUrl, { headers: { 'accept': '*/*' } });
-        
-        if (!response.ok) {
-            throw new Error(`API responded with status: ${response.status}`);
+        let imageBuffer;
+        try {
+            imageBuffer = await captureScreenshot(url);
+        } catch (primaryError) {
+            console.warn('[SS] Webshot failed, using keyless ScreenshotAPI fallback:', primaryError?.message || primaryError);
+            const fallbackUrl = `https://screenshotapi.to/api/v1/public/screenshot?url=${encodeURIComponent(url)}&type=png&fullPage=false`;
+            imageBuffer = await fetchImage(fallbackUrl, { timeoutMs: 60000, fetchOptions: { headers: { accept: 'image/*' } } });
         }
-
-        // Get the image buffer
-        const imageBuffer = await response.buffer();
 
         // Send the screenshot
         await sock.sendMessage(chatId, {

@@ -8,6 +8,7 @@ const registry = require('../lib/command-registry');
 const isOwnerOrSudo = require('../lib/isOwner');
 const { createLeoFrame } = require('../systems/ui/frame');
 const { isBotEnabled, getGroupStats } = require('../lib/access-control');
+const bankManagerCommand = require('../lib/internal/bank-manager');
 
 function fmtDate(value) {
   if (!value) return '—';
@@ -48,6 +49,11 @@ async function monitorCommand(sock, chatId, message, args = []) {
 
   const sub = String(args[0] || '').trim().toLowerCase();
   const normalizedSub = sub.replace(/^ال/, '');
+
+  // Bank administration is now a sub-area of the owner monitoring dashboard.
+  if (['بنك', 'bank', 'bank-manager', 'bankadmin'].includes(sub)) {
+    return bankManagerCommand(sock, chatId, senderId, message, args.slice(1));
+  }
 
   if (['اوامر', 'الأوامر', 'الاوامر', 'commands', 'command'].includes(sub)) {
     const commands = registry.all().filter(c => c.helpVisible !== false).sort((a, b) => String(a.localizedName || a.name).localeCompare(String(b.localizedName || b.name), 'ar'));
@@ -162,6 +168,7 @@ async function monitorCommand(sock, chatId, message, args = []) {
     '• `.مراقبة الأوامر` — حالة كل أمر',
     '• `.مراقبة المزودات` — حالة الخدمات وإعادة المحاولة',
     '• `.مراقبة النظام` — التشغيل والذاكرة والمجموعات',
+    '• `.مراقبة بنك` — اقتصاد البنك والاشتراكات وإدارة الرصيد',
   ];
   await sock.sendMessage(chatId, { text: createLeoFrame('لوحة مراقبة ليو', lines.join('\n')) }, { quoted: message });
 }

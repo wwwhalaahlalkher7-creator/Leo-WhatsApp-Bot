@@ -270,18 +270,18 @@ module.exports = {
     hidetagAdmins: '❌ الأمر `.منشن مخفي` للمشرفين فقط.'
   },
   antilink: {
-    usage: '```إعداد حماية الروابط\n\n{prefix}antilink on\n{prefix}antilink set delete | kick | warn\n{prefix}antilink off\n```',
+    usage: '```إعداد حماية الروابط\n\n.منع الروابط تشغيل\n.منع الروابط إعداد حذف | طرد | تحذير\n.منع الروابط إيقاف\n```',
     alreadyOn: '⚠️ حماية الروابط مفعلة أصلًا.', turnedOn: '🛡️ تم تفعيل حماية الروابط.', turnOnFailed: '❌ تعذر تفعيل حماية الروابط.',
-    turnedOff: '🛡️ تم إيقاف حماية الروابط.', setUsage: '📌 حدد الإجراء: {prefix}antilink set delete | kick | warn',
-    invalidAction: '❌ الإجراء غير صالح. اختر delete أو kick أو warn.', actionSet: '✅ تم ضبط إجراء حماية الروابط على: {action}',
-    actionFailed: '❌ تعذر ضبط إجراء حماية الروابط.', status: '🛡️ *إعداد حماية الروابط*\nالحالة: {status}\nالإجراء: {action}', useHelp: '📌 استخدم {prefix}antilink لعرض طريقة الاستخدام.'
+    turnedOff: '🛡️ تم إيقاف حماية الروابط.', setUsage: '📌 حدد الإجراء: `.منع الروابط إعداد حذف | طرد | تحذير`',
+    invalidAction: '❌ الإجراء غير صالح. اختر: حذف أو طرد أو تحذير.', actionSet: '✅ تم ضبط إجراء حماية الروابط على: {action}',
+    actionFailed: '❌ تعذر ضبط إجراء حماية الروابط.', status: '🛡️ *إعداد حماية الروابط*\nالحالة: {status}\nالإجراء: {action}', useHelp: '📌 استخدم `.منع الروابط` لعرض طريقة الاستخدام.'
   },
   antitag: {
-    usage: '```إعداد حماية المنشن\n\n{prefix}antitag on\n{prefix}antitag set delete | kick\n{prefix}antitag off\n```',
+    usage: '```إعداد حماية المنشن\n\n.منع التاق تشغيل\n.منع التاق إعداد حذف | طرد\n.منع التاق إيقاف\n```',
     alreadyOn: '⚠️ حماية المنشن مفعلة أصلًا.', turnedOn: '🛡️ تم تفعيل حماية المنشن.', turnOnFailed: '❌ تعذر تفعيل حماية المنشن.',
-    turnedOff: '🛡️ تم إيقاف حماية المنشن.', setUsage: '📌 حدد الإجراء: {prefix}antitag set delete | kick',
-    invalidAction: '❌ الإجراء غير صالح. اختر delete أو kick.', actionSet: '✅ تم ضبط إجراء حماية المنشن على: {action}',
-    actionFailed: '❌ تعذر ضبط إجراء حماية المنشن.', status: '🛡️ *إعداد حماية المنشن*\nالحالة: {status}\nالإجراء: {action}', useHelp: '📌 استخدم {prefix}antitag لعرض طريقة الاستخدام.'
+    turnedOff: '🛡️ تم إيقاف حماية المنشن.', setUsage: '📌 حدد الإجراء: `.منع التاق إعداد حذف | طرد`',
+    invalidAction: '❌ الإجراء غير صالح. اختر: حذف أو طرد.', actionSet: '✅ تم ضبط إجراء حماية المنشن على: {action}',
+    actionFailed: '❌ تعذر ضبط إجراء حماية المنشن.', status: '🛡️ *إعداد حماية المنشن*\nالحالة: {status}\nالإجراء: {action}', useHelp: '📌 استخدم `.منع التاق` لعرض طريقة الاستخدام.'
   },
   resetlink: { success: '✅ تم إعادة تعيين رابط المجموعة بنجاح.\n\n📌 الرابط الجديد:\n{link}', failed: '❌ تعذر إعادة تعيين رابط المجموعة.' },
   tag: { header: '🔊 *يا جماعة:*', noNonAdmins: '❌ ما في أعضاء عاديين لمنشنهم.', failed: '❌ تعذر منشن الأعضاء غير المشرفين.' },
