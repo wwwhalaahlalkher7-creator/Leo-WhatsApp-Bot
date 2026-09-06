@@ -484,10 +484,14 @@ async function leaveTrivia(sock, chatId, userId, message, confirm = false, altUs
   const safeLeave = Boolean(session.awaitingDecision);
   const cooldownMs = safeLeave ? config.SAFE_LEAVE_COOLDOWN_MS : config.LEAVE_COOLDOWN_MS;
   await setCooldown(userId, cooldownMs);
-  const awarded = Number(session.bankedReward || 0);
+  // عند المغادرة الاختيارية أثناء سؤال جارٍ، تُصرف مكافأة آخر سؤال تمت الإجابة عنه،
+  // وليس آخر نقطة أمان. أما الخسارة/انتهاء الوقت فتبقى على الجائزة الآمنة فقط.
+  const awarded = safeLeave
+    ? Number(session.bankedReward || 0)
+    : cumulativeReward(Number(session.lastAnsweredQuestion || 0));
   saveRecord(session, 'مغادرة اختيارية', awarded, { cooldownMs });
   await sendPrizeCheque(sock, session, awarded, 'مغادرة اختيارية');
-  return sock.sendMessage(chatId, { text: `🚪 *تمت المغادرة بنجاح.*\n\n💰 إجمالي النيـورونات المكتسبة حتى آخر سؤال: *${awarded} ${currency.name}*\n🏆 آخر سؤال أجبت عنه: *${session.lastAnsweredQuestion}*\n⏰ مهلة إعادة اللعب: *${Math.round(cooldownMs / 60000)} دقائق*\n\n📒 تم حفظ النتيجة في سجل المسابقات.` }, { quoted: message });
+  return sock.sendMessage(chatId, { text: `🚪 *تمت المغادرة بنجاح.*\n\n💰 الجائزة المصروفة حتى آخر سؤال تمت إجابته: *${awarded} ${currency.name}*\n🏆 آخر سؤال أجبت عنه: *${session.lastAnsweredQuestion}*\n🛡️ آخر نقطة أمان: *${session.bankedReward || 0} ${currency.name}*\n⏰ مهلة إعادة اللعب: *${Math.round(cooldownMs / 60000)} دقائق*\n\n📒 تم حفظ النتيجة في سجل المسابقات.` }, { quoted: message });
 }
 async function answerTrivia(sock, chatId, answer, userId, message, altUserId = null) {
   const session = sessions.get(chatId);
