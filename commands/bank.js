@@ -31,7 +31,7 @@ async function bankCommand(sock, chatId, userId, message, economy = null) {
   economy ||= require('../systems/economy').createEconomy();
   try {
     const balance = await economy.balance(userId);
-    const history = economy.history(userId, 10);
+    const history = economy.history(userId, 3);
     const lines = history.length
       ? history.map((tx, i) => `${i + 1}. ${tx.type === 'credit' ? '🟢 +' : '🔴 -'}${tx.amount} — ${tx.reason==='game:trivia:summary'?'المسابقة':economy.formatReason(tx.reason)}`).join('\n')
       : 'لا توجد عمليات مسجلة بعد.';

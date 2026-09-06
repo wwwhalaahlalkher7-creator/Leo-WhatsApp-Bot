@@ -31,7 +31,9 @@ add({ name:'news',aliases:[], localizedAliases:['أخبار','اخبار'], loca
 add({ name:'topmembers',aliases:[], localizedAliases:['التوب','توب الأعضاء'], localizedName:'التوب', category:'level', usage:'.توب_الأعضاء', description:'عرض ترتيب الأعضاء حسب النشاط المسجل.', method:'استخدم الأمر داخل المجموعة.', groupOnly:true, execute:(sock, chatId, message, args, ctx) => topMembers(sock, chatId, ctx.isGroup) });
 add({ name:'alive', aliases:[], localizedAliases:['حالة'], localizedName:'حالة', category:'utility', usage:'.حالة', description:'عرض حالة LeoBot ومعلومات التشغيل الأساسية.', method:'أرسل `.حالة`.', execute:aliveCommand });
 add({ name:'balance',aliases:[], localizedAliases:['رصيد','رصيدي'], localizedName:'رصيد', category:'economy', usage:'.رصيد [بالرد على عضو]', description:'عرض رصيد حسابك الحالي أو رصيد عضو بالرد على رسالته.', method:'أرسل `.رصيد`، أو رد على رسالة العضو بالأمر.', execute:async (sock, chatId, message, args, ctx) => {
-  const target = require('../systems/input').replySender(message);
+  const inputSystem = require('../systems/input');
+  const mentioned = inputSystem.mentions(message);
+  const target = mentioned[0] || inputSystem.replySender(message);
   const userId = target || ctx.senderId;
   const balance = await ctx.systems.economy.balance(userId);
   if (target && ctx.systems.economy.normalizeId(target) !== ctx.systems.economy.normalizeId(ctx.senderId)) {

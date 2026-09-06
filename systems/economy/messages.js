@@ -10,7 +10,7 @@ ${currency.balanceLabel(balance)}`,
   balance: amount => `💰 ${currency.balanceLabel(amount)}`,
   transferSuccess: (target, amount, balance) => `🏦 *تم التحويل بنجاح*\n\n👤 المستلم: @${String(target).split('@')[0]}\n💸 المبلغ: *${currency.amount(amount)}*\n💰 المتبقي: *${currency.balance(balance)}*`,
   transferSelf: () => '❌ لا يمكنك تحويل الرصيد إلى نفسك.',
-  transferUsage: () => '💸 *طريقة التحويل:*\n.تحويل @العضو المبلغ\n\nمثال: *.تحويل @Leo 50*',
+  transferUsage: () => '💸 *طريقة التحويل:*\n.تحويل @العضو المبلغ',
   operationFailure: label => `❌ تعذر ${label} حاليًا. حاول مرة أخرى.`,
 });
 

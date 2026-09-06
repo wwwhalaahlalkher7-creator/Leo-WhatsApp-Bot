@@ -223,14 +223,14 @@ function questionText(session, extra = '') {
   const progress = Array.from({ length: config.TOTAL_QUESTIONS }, (_, i) => i + 1 === session.questionNumber ? '🔶' : i + 1 < session.questionNumber ? '🟢' : '⚫').join('');
   const options = shown.length ? `\n\n${optionBlock(shown)}` : '';
   const helpLine = stage <= 3
-    ? (session.optionsShown
-      ? ''
-      : `\n💡 المساعدة المتاحة الآن: *خيارات* — التكلفة: *${competitionPrices.OPTION_COSTS[stage]} ${currency.name}* بالرد على رسالة هذا السؤال.`)
+    ? (!session.optionsShown
+      ? `\n💡 المساعدة المتاحة الآن: *خيارات* — التكلفة: *${competitionPrices.OPTION_COSTS[stage]} ${currency.name}* بالرد على رسالة هذا السؤال.`
+      : (session.removeAvailable
+        ? `\n🗑️ المساعدة المتاحة الآن: *حذف خيار* — التكلفة: *${competitionPrices.REMOVE_OPTION_COSTS[stage]} ${currency.name}* بالرد على رسالة هذا السؤال.`
+        : '\n✅ تم استخدام كل المساعدات المتاحة لهذا السؤال.'))
     : '\n🚫 لا تتوفر مساعدات في هذه المرحلة.';
-  const removeLine = session.removeAvailable
-    ? `\n🗑️ المساعدة التالية: حذف خيار خاطئ واحد — التكلفة: *${competitionPrices.REMOVE_OPTION_COSTS[stage]} ${currency.name}* بالرد على رسالة هذا السؤال.`
-    : '';
-  return `╭━━━〔 🏆 المسابقة الكبرى 〕━━━╮\n┃ المرحلة: *${stage}/4*\n┃ السؤال: *${session.questionNumber}/${config.TOTAL_QUESTIONS}*\n┃ ⏱️ الزمن: *${Math.max(0, Math.ceil((Number(session.questionDeadlineAt || Date.now()) - Date.now()) / 1000))} ثانية*\n╰━━━━━━━━━━━━━━━━━━━━━━╯\n\n${progress}\n\n🧠 *${q.category || 'عام'}*\n\n❓ ${q.question}${options}${helpLine}${removeLine}\n\n↩️ *أجب فقط بالرد على رسالة هذا السؤال.*${extra ? `\n\n${extra}` : ''}`;
+  const removeLine = '';
+  return `╮━━━〔 🏆 المسابقة الكبرى 〕━━━╭\n┃ المرحلة: *${stage}/4*\n┃ السؤال: *${session.questionNumber}/${config.TOTAL_QUESTIONS}*\n┃ ⏱️ الزمن: *${Math.max(0, Math.ceil((Number(session.questionDeadlineAt || Date.now()) - Date.now()) / 1000))} ثانية*\n╯━━━━━━━━━━━━━━━━━━━╰\n\n${progress}\n\n🧠 *${q.category || 'عام'}*\n\n❓ ${q.question}${options}${helpLine}${removeLine}\n\n↩️ *أجب فقط بالرد على رسالة هذا السؤال.*${extra ? `\n\n${extra}` : ''}`;
 }
 function saveRecord(session, result, awarded, extra = {}) {
   const record = {
@@ -330,6 +330,7 @@ async function sendQuestion(sock, session, quotedMessage, extra = '', preserveDe
   const sent = await sock.sendMessage(session.chatId, { text: questionText(session, extra) }, { quoted: quotedMessage });
   session.questionMessageId = sent?.key?.id || null;
   session.decisionMessageId = null;
+  session.leaveConfirmationMessageId = null;
   session.optionsShown = Boolean(session.displayedOptions?.length);
   session.removeAvailable = session.stage === 2 || session.stage === 3 ? session.optionsShown && !session.removeUsed : false;
   session.awaitingDecision = false;
@@ -363,6 +364,7 @@ async function startTrivia(sock, chatId, userId, message, altUserId = null) {
     startedAt: Date.now(),
     questionMessageId: null,
     decisionMessageId: null,
+    leaveConfirmationMessageId: null,
     playerName: String(message?.pushName || message?.verifiedBizName || 'المتسابق').trim() || 'المتسابق',
     timerHandle: null,
     timerToken: 0,
@@ -452,8 +454,31 @@ async function continueTrivia(sock, chatId, userId, message, altUserId = null) {
 }
 async function leaveTrivia(sock, chatId, userId, message, confirm = false, altUserId = null) {
   const session = sessions.get(chatId);
-  if (!session || !sameUser(session.userId, userId, altUserId) || !isReplyTo(message, session.awaitingDecision ? session.decisionMessageId : session.questionMessageId)) return false;
-  if (!confirm && !session.awaitingDecision) return sock.sendMessage(chatId, { text: '⚠️ *تأكيد المغادرة*\n\nستحصل على جائزة آخر سؤال تمت إجابته.\n\n↩️ أرسل *مغادرة نعم* بالرد على رسالة السؤال الحالية للتأكيد.' }, { quoted: message });
+  if (!session || !sameUser(session.userId, userId, altUserId)) return false;
+
+  const replyId = session.awaitingDecision
+    ? session.decisionMessageId
+    : (session.leaveConfirmationMessageId || session.questionMessageId);
+  if (!isReplyTo(message, replyId)) return false;
+
+  if (session.leaveConfirmationMessageId && isReplyTo(message, session.leaveConfirmationMessageId)) {
+    const choice = parseCommand(message?.message?.conversation || message?.message?.extendedTextMessage?.text || '');
+    if (choice === 'إلغاء' || choice === 'الغاء') {
+      session.leaveConfirmationMessageId = null;
+      return sock.sendMessage(chatId, { text: '↩️ *تم إلغاء المغادرة.*\n\n🎯 يمكنك متابعة الإجابة عن السؤال الحالي.' }, { quoted: message });
+    }
+    if (choice !== 'مغادرة') return sock.sendMessage(chatId, { text: '⚠️ اختر أحد الخيارين بالرد على هذه الرسالة:\n\n🚪 *مغادرة*\n↩️ *إلغاء*' }, { quoted: message });
+    confirm = true;
+  }
+
+  if (!confirm && !session.awaitingDecision) {
+    const confirmation = await sock.sendMessage(chatId, {
+      text: '⚠️ *هل تريد مغادرة المسابقة؟*\n\n💰 ستحصل على الجائزة المتراكمة حتى آخر سؤال تمت إجابته فقط.\n\n🚪 *مغادرة* — تأكيد الخروج\n↩️ *إلغاء* — متابعة المسابقة\n\n📌 *يجب الرد على هذه الرسالة.*'
+    }, { quoted: message });
+    session.leaveConfirmationMessageId = confirmation?.key?.id || null;
+    return confirmation;
+  }
+
   clearTimer(session);
   sessions.delete(chatId);
   const safeLeave = Boolean(session.awaitingDecision);
@@ -466,12 +491,18 @@ async function leaveTrivia(sock, chatId, userId, message, confirm = false, altUs
 }
 async function answerTrivia(sock, chatId, answer, userId, message, altUserId = null) {
   const session = sessions.get(chatId);
-  if (!session || !sameUser(session.userId, userId, altUserId) || !isReplyTo(message, session.awaitingDecision ? session.decisionMessageId : session.questionMessageId)) return false;
+  const expectedReplyId = session?.awaitingDecision
+    ? session.decisionMessageId
+    : (session?.leaveConfirmationMessageId || session?.questionMessageId);
+  if (!session || !sameUser(session.userId, userId, altUserId) || !isReplyTo(message, expectedReplyId)) return false;
   const cmd = parseCommand(answer);
   if (session.awaitingDecision) {
     if (cmd === 'استمرار' || cmd === 'متابعة') return continueTrivia(sock, chatId, userId, message, altUserId);
     if (cmd === 'مغادرة' || cmd === 'مغادره') return leaveTrivia(sock, chatId, userId, message, true, altUserId);
-    if (cmd === 'مغادرة نعم' || cmd === 'مغادره نعم' || cmd === 'مغادرةنعم') return leaveTrivia(sock, chatId, userId, message, true, altUserId);
+    return true;
+  }
+  if (session.leaveConfirmationMessageId) {
+    if (cmd === 'مغادرة' || cmd === 'مغادره' || cmd === 'إلغاء' || cmd === 'الغاء') return leaveTrivia(sock, chatId, userId, message, false, altUserId);
     return true;
   }
   if (cmd === 'خيارات' || cmd === 'خيارات_المسابقة' || cmd === 'خيارات المسابقة') return requestOptions(sock, chatId, userId, message, altUserId);
@@ -494,6 +525,29 @@ async function answerTrivia(sock, chatId, answer, userId, message, altUserId = n
 
   session.lastAnsweredQuestion = session.questionNumber;
   session.currentReward = cumulativeReward(session.questionNumber);
+
+  if (session.questionNumber === config.TOTAL_QUESTIONS) {
+    session.bankedReward = session.currentReward;
+    await creditUpTo(session, session.bankedReward);
+    clearTimer(session); sessions.delete(chatId);
+    await setCooldown(userId, config.NORMAL_COOLDOWN_MS);
+    const records = history.read();
+    const historyKey = String(normalizeId(userId));
+    const priorWins = Array.isArray(records.users?.[historyKey])
+      ? records.users[historyKey].some(record => record?.result === 'فوز كامل')
+      : false;
+    const subscriptionUsers = subscriptions.allUsers();
+    const firstWinAlreadyGranted = Boolean(subscriptionUsers[String(userId)]?.competitionFirstWinGranted === true && subscriptionUsers[String(userId)]?.source === 'competition:first-win');
+    let firstWinPro = false;
+    if (!priorWins && !firstWinAlreadyGranted) {
+      await subscriptions.set(userId, 'pro', 30, { source: 'competition:first-win', competitionFirstWinGranted: true });
+      firstWinPro = true;
+    }
+    saveRecord(session, 'فوز كامل', session.currentReward, { cooldownMs: config.NORMAL_COOLDOWN_MS, firstWinPro });
+    await sendPrizeCheque(sock, session, session.currentReward, 'فوز كامل');
+    return sock.sendMessage(chatId, { text: `🏆 *مبروك! أكملت المسابقة.*\n\n💰 الجائزة النهائية: *${session.currentReward} ${currency.name}*\n📈 إجمالي تكاليف الأسئلة: *${cumulativeCost(session.questionNumber)} ${currency.name}*\n${firstWinPro ? '💎 *مكافأة أول فوز: تم منحك اشتراك Leo Pro لمدة شهر.*\n' : ''}⏰ يمكنك بدء مسابقة جديدة بعد *5 دقائق*.\n\n📒 تم حفظ النتيجة في سجل المسابقات.` }, { quoted: message });
+  }
+
   if (safeQuestion(session.questionNumber)) {
     session.bankedReward = session.currentReward;
     await creditUpTo(session, session.bankedReward);
@@ -501,14 +555,6 @@ async function answerTrivia(sock, chatId, answer, userId, message, altUserId = n
     session.removeAvailable = false;
     armTimer(sock, session, 'decision');
     const q = session.questionNumber;
-    const final = q === config.TOTAL_QUESTIONS;
-    if (final) {
-      clearTimer(session); sessions.delete(chatId);
-      await setCooldown(userId, config.NORMAL_COOLDOWN_MS);
-      saveRecord(session, 'فوز كامل', session.currentReward, { cooldownMs: config.NORMAL_COOLDOWN_MS });
-      await sendPrizeCheque(sock, session, session.currentReward, 'فوز كامل');
-      return sock.sendMessage(chatId, { text: `🏆 *مبروك! أكملت المسابقة.*\n\n💰 الجائزة النهائية: *${session.currentReward} ${currency.name}*\n📈 إجمالي تكاليف الأسئلة: *${cumulativeCost(q)} ${currency.name}*\n⏰ يمكنك بدء مسابقة جديدة بعد *5 دقائق*.\n\n📒 تم حفظ النتيجة في سجل المسابقات.` }, { quoted: message });
-    }
     const next = q + 1;
     const decision = await sock.sendMessage(chatId, { text: `🎉 *إجابة صحيحة!*\n\n🛡️ *نقطة أمان ${q}*\n💰 الجائزة المضمونة الآن: *${session.bankedReward} ${currency.name}*\n\n🔥 هل تريد المخاطرة بالسؤال *${next}*؟\n\n⏱️ لديك *دقيقتان* لاتخاذ القرار. إذا لم ترد، يعتبرك النظام منسحبًا وتحصل على آخر جائزة مضمونة فقط.\n\n↩️ *استمرار* أو *مغادرة*\n📌 *يجب أن ترد على هذه الرسالة نفسها.*` }, { quoted: message });
     session.decisionMessageId = decision?.key?.id || null;

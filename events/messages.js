@@ -172,7 +172,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
 
         // Trivia decision actions may be written with a dot as well. They are
         // accepted only as replies to the exact safe-point decision message.
-        if (isTriviaActive(chatId) && /^\.(استمرار|متابعة|مغادرة|مغادره)(?:\s|$)/i.test(rawCommandText)) {
+        if (isTriviaActive(chatId) && /^\.(استمرار|متابعة|مغادرة|مغادره|إلغاء|الغاء)(?:\s|$)/i.test(rawCommandText)) {
             const actionText = rawCommandText.replace(/^\./, '').trim();
             const handledTriviaAction = await answerTrivia(sock, chatId, actionText, senderId, message, senderIdAlt);
             if (handledTriviaAction) return;

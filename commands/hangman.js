@@ -65,86 +65,15 @@ function maskWord(word, guessed) {
   return Array.from(word).map(ch => guessed.has(ch) ? ch : '＿').join(' ');
 }
 
-function drawing(wrong) {
-  const stages = [
-`  +---+
-  |   |
-      |
-      |
-      |
-=========`,
-`  +---+
-  |   |
-  O   |
-      |
-      |
-=========`,
-`  +---+
-  |   |
-  O   |
-  |   |
-      |
-=========`,
-`  +---+
-  |   |
-  O   |
- /|   |
-      |
-=========`,
-`  +---+
-  |   |
-  O   |
- /|\  |
-      |
-=========`,
-`  +---+
-  |   |
-  O   |
- /|\  |
- /    |
-=========`,
-`  +---+
-  |   |
-  O   |
- /|\  |
- / \  |
-=========`,
-  ];
-  return stages[Math.min(wrong, MAX_WRONG)];
-}
 
-function samePlayer(game, userId) {
-  return game && economy.normalizeId(game.userId) === economy.normalizeId(userId);
-}
 
-function clearGameTimer(game) {
-  if (game?.timerHandle) clearTimeout(game.timerHandle);
-  if (game) game.timerHandle = null;
-}
-
-function remainingSeconds(game) {
-  return Math.max(0, Math.ceil((Number(game?.deadlineAt || Date.now()) - Date.now()) / 1000));
-}
-
-function armGameTimer(sock, chatId, game) {
-  clearGameTimer(game);
-  const remaining = Math.max(1, Number(game.deadlineAt || 0) - Date.now());
-  game.timerHandle = setTimeout(async () => {
-    if (games.get(chatId) !== game) return;
-    games.delete(chatId);
-    game.timerHandle = null;
-    await sock.sendMessage(chatId, {
-      text: `⏰ *انتهى وقت لعبة «خمن».*\n\n🔤 الكلمة كانت: *${game.word}*\n💸 رسوم البداية لم تُسترد.`
-    });
-  }, remaining);
-}
-
-function gameText(game) {
-    const options = [];
+function gameText(game, includeStartFee = false) {
+  const options = [];
   if (game.hints === 0) options.push(`🔎 الدليل الأول: ${currency.amount(HINT_COSTS[0])} — اكتب *دليل* بالرد على رسالة اللعبة`);
   else if (game.hints === 1) options.push(`🔎 الدليل الثاني: ${currency.amount(HINT_COSTS[1])} — اكتب *دليل* بالرد على رسالة اللعبة`);
-  return `🎯 *لعبة «خمن»*\n\n🔤 الكلمة: ${maskWord(game.word, game.guessed)}\n\n💡 *الدليل الابتدائي:* ${game.initialHint}\n${game.hints >= 1 ? `💡 *الدليل الأول:* ${game.hint1}\n` : ''}${game.hints >= 2 ? `💡 *الدليل الثاني:* ${game.hint2}\n` : ''}\n❌ الأخطاء: *${game.wrong}/${MAX_WRONG}*
-⏱️ الوقت المتبقي: *${remainingSeconds(game)} ثانية*\n💰 رسوم البداية: *${currency.amount(COST)}*\n🏆 الجائزة عند الفوز: *${currency.amount(REWARD)}*\n\n${options.join('\n') || '✍️ أرسل حرفًا أو الكلمة كاملة.'}`;
+  const startFee = includeStartFee ? `\n💰 رسوم البداية: *${currency.amount(COST)}*` : '';
+  const fallback = game.hints >= 2 ? '' : '✍️ أرسل حرفًا أو الكلمة كاملة.';
+  return `🎯 *لعبة «خمن»*\n\n🔤 الكلمة: ${maskWord(game.word, game.guessed)}\n\n💡 *الدليل الابتدائي:* ${game.initialHint}\n${game.hints >= 1 ? `💡 *الدليل الأول:* ${game.hint1}\n` : ''}${game.hints >= 2 ? `💡 *الدليل الثاني:* ${game.hint2}\n` : ''}\n❌ الأخطاء: *${game.wrong}/${MAX_WRONG}*\n⏱️ الوقت المتبقي: *${remainingSeconds(game)} ثانية*${startFee}\n🏆 الجائزة عند الفوز: *${currency.amount(REWARD)}*\n\n${options.join('\n') || fallback}`;
 }
 
 async function startGuess(sock, chatId, userId, message) {
@@ -157,7 +86,7 @@ async function startGuess(sock, chatId, userId, message) {
   const [word, initialHint, hint1, hint2] = pickWord();
   const game = { word, initialHint, hint1, hint2, guessed: new Set(), wrong: 0, hints: 0, userId, activeMessageId: null, deadlineAt: Date.now() + GAME_TIMEOUT_MS, timerHandle: null };
   games.set(chatId, game);
-  const sent = await sock.sendMessage(chatId, { text: gameText(game) + '\n\n✍️ أرسل حرفًا واحدًا أو الكلمة كاملة بالرد على رسالة اللعبة.' }, { quoted: message });
+  const sent = await sock.sendMessage(chatId, { text: gameText(game, true) + '\n\n✍️ أرسل حرفًا واحدًا أو الكلمة كاملة بالرد على رسالة اللعبة.' }, { quoted: message });
   game.activeMessageId = sent?.key?.id || null;
   armGameTimer(sock, chatId, game);
   return sent;
@@ -175,7 +104,7 @@ async function requestHint(sock, chatId, userId, message) {
   if (!charged.ok) return sock.sendMessage(chatId, { text: `💸 لا تملك ما يكفي من ${currency.name}. تحتاج *${currency.amount(cost)}* لطلب هذا الدليل.` }, { quoted: message });
   game.hints += 1;
   try {
-    const sent = await sock.sendMessage(chatId, { text: `${gameText(game)}\n\n🔎 تم عرض الدليل بنجاح.\n⏱️ المتبقي: *${remainingSeconds(game)} ثانية*.\n\n✍️ أرسل تخمينك بالرد على رسالة اللعبة عندما تكون جاهزًا.` }, { quoted: message });
+    const sent = await sock.sendMessage(chatId, { text: gameText(game) }, { quoted: message });
     game.activeMessageId = sent?.key?.id || game.activeMessageId;
     return sent;
   } catch (error) {
@@ -223,7 +152,7 @@ async function guess(sock, chatId, input, userId, message) {
   if (game.wrong >= MAX_WRONG) {
     games.delete(chatId);
     clearGameTimer(game);
-    return sock.sendMessage(chatId, { text: `💀 *انتهت اللعبة!*\n\n${drawing(MAX_WRONG)}\n\n🔤 الكلمة كانت: *${game.word}*\n❌ انتهت جميع المحاولات.\n💸 رسوم البداية لم تُسترد.` }, { quoted: message });
+    return sock.sendMessage(chatId, { text: `💀 *انتهت اللعبة!*\n\n🔤 الكلمة كانت: *${game.word}*\n❌ انتهت جميع المحاولات.\n💸 رسوم البداية لم تُسترد.` }, { quoted: message });
   }
   const sent = await sock.sendMessage(chatId, { text: `${gameText(game)}\n\n❌ تخمين خاطئ. بقيت *${MAX_WRONG - game.wrong}* محاولات.` }, { quoted: message });
   game.activeMessageId = sent?.key?.id || game.activeMessageId;
