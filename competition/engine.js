@@ -587,7 +587,7 @@ function historyFor(userId) { return history.latest(userId); }
 async function contestHistoryCommand(sock, chatId, userId, message) {
   const record = historyFor(userId);
   if (!record) return sock.sendMessage(chatId, { text: '📒 لا يوجد سجل مسابقات لهذا الحساب بعد.' }, { quoted: message });
-  const text = `╭━━━〔 📒 سجل المسابقات 〕━━━╮\n┃ النتيجة: *${record.result}*\n┃ آخر سؤال تمت إجابته: *${record.lastAnsweredQuestion || 0}/${config.TOTAL_QUESTIONS}*\n┃ أعلى مرحلة: *${record.stageReached || 0}/4*\n┃ الجائزة المضمونة: *${record.bankedReward || 0} ${currency.name}*\n┃ الجائزة المصروفة: *${record.awarded || 0} ${currency.name}*\n┃ التكاليف حتى نهاية الجولة: *${record.totalQuestionCosts || 0} ${currency.name}*\n┃ التاريخ: *${new Date(record.endedAt).toLocaleString('ar-EG')}*\n╰━━━━━━━━━━━━━━━━━━━━━━╯`;
+  const text = `╮━━━〔 📒 سجل المسابقات 〕━━━╭\n┃ النتيجة: *${record.result}*\n┃ آخر سؤال تمت إجابته: *${record.lastAnsweredQuestion || 0}/${config.TOTAL_QUESTIONS}*\n┃ أعلى مرحلة: *${record.stageReached || 0}/4*\n┃ الجائزة المضمونة: *${record.bankedReward || 0} ${currency.name}*\n┃ الجائزة المصروفة: *${record.awarded || 0} ${currency.name}*\n┃ التكاليف حتى نهاية الجولة: *${record.totalQuestionCosts || 0} ${currency.name}*\n┃ التاريخ: *${new Date(record.endedAt).toLocaleString('ar-EG')}*\n╯━━━━━━━━━━━━━━━━━━━╰`;
   return sock.sendMessage(chatId, { text }, { quoted: message });
 }
 function isTriviaActive(chatId) { return sessions.has(chatId); }
