@@ -25,7 +25,7 @@ ln -s "$PERSIST_SESSION" /app/session
 
 # Start the YouTube PO-token provider locally for yt-dlp when available.
 if [ -f /opt/bgutil-ytdlp-pot-provider/server/build/main.js ]; then
-  node /opt/bgutil-ytdlp-pot-provider/server/build/main.js >/tmp/bgutil-pot-provider.log 2>&1 &
+  node /opt/bgutil-ytdlp-pot-provider/server/build/main.js --host 127.0.0.1 >/tmp/bgutil-pot-provider.log 2>&1 &
   POT_PID=$!
   trap 'kill "$POT_PID" 2>/dev/null || true' EXIT INT TERM
   sleep 1
