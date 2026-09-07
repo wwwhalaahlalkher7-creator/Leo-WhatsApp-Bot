@@ -3,7 +3,7 @@ FROM node:22-bookworm-slim
 ENV NODE_ENV=production
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg ca-certificates libreoffice python3 python3-pip poppler-utils ghostscript zip fonts-dejavu \
+    && apt-get install -y --no-install-recommends ffmpeg ca-certificates libreoffice python3 python3-pip poppler-utils ghostscript zip fonts-dejavu fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

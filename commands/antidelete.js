@@ -79,6 +79,12 @@ const isOwnerOrSudo = require('../lib/isOwner');
 async function handleAntideleteCommand(sock, chatId, message, match) {
     const senderId = message.key.participant || message.key.remoteJid;
     const isOwner = await isOwnerOrSudo(senderId, sock, chatId);
+    const rawMatch = String(match || '').trim().toLowerCase();
+    const action = ['on', 'تشغيل', 'تفعيل', 'enable', 'enabled'].includes(rawMatch)
+        ? 'on'
+        : ['off', 'إيقاف', 'ايقاف', 'تعطيل', 'disable', 'disabled'].includes(rawMatch)
+            ? 'off'
+            : rawMatch;
     
     if (!message.key.fromMe && !isOwner) {
         return sock.sendMessage(chatId, { text: '*❌ هذا الأمر متاح لمالك البوت فقط.*' }, { quoted: message });
@@ -86,22 +92,22 @@ async function handleAntideleteCommand(sock, chatId, message, match) {
 
     const config = loadAntideleteConfig();
 
-    if (!match) {
+    if (!action) {
         return sock.sendMessage(chatId, {
-            text: `*إعداد الحذف التلقائي*\n\nالحالة الحالية: ${config.enabled ? '✅ مفعّل' : '❌ متوقف'}\n\n*.منع_الحذف تشغيل* — تفعيل\n*.منع_الحذف إيقاف* — إيقاف`
+            text: `*إعداد الحذف التلقائي*\n\nالحالة الحالية: ${config.enabled ? '✅ مفعّل' : '❌ متوقف'}\n\n*.منع الحذف تشغيل* — تفعيل\n*.منع الحذف إيقاف* — إيقاف`
         }, {quoted: message});
     }
 
-    if (match === 'on') {
+    if (action === 'on') {
         config.enabled = true;
-    } else if (match === 'off') {
+    } else if (action === 'off') {
         config.enabled = false;
     } else {
-        return sock.sendMessage(chatId, { text: '*❌ الأمر غير صحيح. استخدم `.مضاد الحذف` لعرض طريقة الاستخدام.*' }, {quoted:message});
+        return sock.sendMessage(chatId, { text: '*❌ الأمر غير صحيح. استخدم `.منع الحذف` لعرض طريقة الاستخدام.*' }, {quoted:message});
     }
 
     saveAntideleteConfig(config);
-    return sock.sendMessage(chatId, { text: `*Antidelete ${match === 'on' ? 'enabled' : 'disabled'}*` }, {quoted:message});
+    return sock.sendMessage(chatId, { text: action === 'on' ? '*✅ تم تفعيل منع الحذف.*' : '*⛔ تم إيقاف منع الحذف.*' }, {quoted:message});
 }
 
 // Store incoming messages (also handles anti-view-once by forwarding immediately)
@@ -239,16 +245,16 @@ async function handleMessageRevocation(sock, revocationMessage) {
             day: '2-digit', month: '2-digit', year: 'numeric'
         });
 
-        let text = `*🔰 ANTIDELETE REPORT 🔰*\n\n` +
-            `*🗑️ Deleted By:* @${deletedBy.split('@')[0]}\n` +
-            `*👤 Sender:* @${senderName}\n` +
-            `*📱 Number:* ${sender}\n` +
-            `*🕒 Time:* ${time}\n`;
+        let text = `*🔰 تقرير منع الحذف 🔰*\n\n` +
+            `*🗑️ حُذفت بواسطة:* @${deletedBy.split('@')[0]}\n` +
+            `*👤 المرسل:* @${senderName}\n` +
+            `*📱 الرقم:* ${sender}\n` +
+            `*🕒 الوقت:* ${time}\n`;
 
-        if (groupName) text += `*👥 Group:* ${groupName}\n`;
+        if (groupName) text += `*👥 المجموعة:* ${groupName}\n`;
 
         if (original.content) {
-            text += `\n*💬 Deleted Message:*\n${original.content}`;
+            text += `\n*💬 الرسالة المحذوفة:*\n${original.content}`;
         }
 
         await sock.sendMessage(destination, {
@@ -259,7 +265,7 @@ async function handleMessageRevocation(sock, revocationMessage) {
         // Media sending
         if (original.mediaType && fs.existsSync(original.mediaPath)) {
             const mediaOptions = {
-                caption: `*Deleted ${original.mediaType}*\nFrom: @${senderName}`,
+                caption: `*الوسائط المحذوفة (${original.mediaType})*\nمن: @${senderName}`,
                 mentions: [sender]
             };
 

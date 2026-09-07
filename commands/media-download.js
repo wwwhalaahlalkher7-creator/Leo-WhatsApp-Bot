@@ -13,8 +13,61 @@ function textOf(message) {
 }
 function validUrl(value) { try { return new URL(value); } catch { return null; } }
 
+function withTimeout(promise, ms, label = 'Media send timed out') {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(label)), ms);
+    timer.unref?.();
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+async function sendDirect(sock, chatId, message, mediaUrl, type, caption = '') {
+  await assertPublicHttpUrl(mediaUrl);
+  const options = type === 'audio'
+    ? { audio: { url: mediaUrl }, mimetype: 'audio/mpeg', fileName: 'audio.mp3', ptt: false }
+    : type === 'image'
+      ? { image: { url: mediaUrl }, caption }
+      : { video: { url: mediaUrl }, mimetype: 'video/mp4', fileName: 'video.mp4', caption };
+  return withTimeout(sock.sendMessage(chatId, options, { quoted: message }), 45_000, 'Direct media send timed out');
+}
+
+async function sendAudioWithFallback(sock, chatId, message, mediaUrl) {
+  try {
+    return await sendDirect(sock, chatId, message, mediaUrl, 'audio');
+  } catch (directError) {
+    console.warn('[MEDIA-DL] Direct audio send failed, falling back to optimization:', directError.message);
+    const optimized = await optimizeAudio(mediaUrl, { bitrate: '96k', mono: false });
+    try { return await sock.sendMessage(chatId, { audio: { url: optimized }, mimetype: 'audio/mpeg', fileName: 'audio.mp3', ptt: false }, { quoted: message }); }
+    finally { cleanup(optimized); }
+  }
+}
+
+async function sendVideoWithFallback(sock, chatId, message, mediaUrl, caption = '', fileName = 'video.mp4') {
+  try {
+    await assertPublicHttpUrl(mediaUrl);
+    return await withTimeout(sock.sendMessage(chatId, { video: { url: mediaUrl }, mimetype: 'video/mp4', fileName, caption }, { quoted: message }), 45_000, 'Direct video send timed out');
+  } catch (directError) {
+    console.warn('[MEDIA-DL] Direct video send failed, falling back to optimization:', directError.message);
+    const optimized = await optimizeVideo(mediaUrl, { maxWidth: 640, crf: 32, audioBitrate: '64k' });
+    try { return await sock.sendMessage(chatId, { video: { url: optimized }, mimetype: 'video/mp4', fileName, caption }, { quoted: message }); }
+    finally { cleanup(optimized); }
+  }
+}
+
+async function sendImageWithFallback(sock, chatId, message, mediaUrl, caption = '') {
+  try {
+    return await sendDirect(sock, chatId, message, mediaUrl, 'image', caption);
+  } catch (directError) {
+    console.warn('[MEDIA-DL] Direct image send failed, falling back to buffer download:', directError.message);
+    const buffer = await fetchMedia(mediaUrl, { timeout: 60000 });
+    return sock.sendMessage(chatId, { image: buffer, caption }, { quoted: message });
+  }
+}
+
 async function sendResult(sock, chatId, message, result, originalUrl) {
   if (!result) throw new Error('Empty result');
+  const caption = t('download.generic.caption', '', { url: originalUrl });
 
   if (result.media?.length) {
     for (const media of result.media.slice(0, 20)) {
@@ -23,34 +76,19 @@ async function sendResult(sock, chatId, message, result, originalUrl) {
       const kind = String(media.type || media.mime || '').toLowerCase();
       const isAudio = kind.includes('audio') || /\.(mp3|m4a|aac|ogg|wav|opus)(\?|$)/i.test(mediaUrl);
       const isImage = kind.includes('image') || /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(mediaUrl);
-      if (isAudio) {
-        const optimized = await optimizeAudio(mediaUrl, { bitrate: '96k', mono: false });
-        try { await sock.sendMessage(chatId, { audio: { url: optimized }, mimetype: 'audio/mpeg', fileName: 'audio.mp3', ptt: false }, { quoted: message }); }
-        finally { cleanup(optimized); }
-      } else if (isImage) {
-        const buffer = await fetchMedia(mediaUrl, { timeout: 60000 });
-        await sock.sendMessage(chatId, { image: buffer, caption: t('download.generic.caption', '', { url: originalUrl }) }, { quoted: message });
-      } else {
-        const optimized = await optimizeVideo(mediaUrl, { maxWidth: 640, crf: 32, audioBitrate: '64k' });
-        try { await sock.sendMessage(chatId, { video: { url: optimized }, mimetype: 'video/mp4', fileName: 'video.mp4', caption: t('download.generic.caption', '', { url: originalUrl }) }, { quoted: message }); }
-        finally { cleanup(optimized); }
-      }
+      if (isAudio) await sendAudioWithFallback(sock, chatId, message, mediaUrl);
+      else if (isImage) await sendImageWithFallback(sock, chatId, message, mediaUrl, caption);
+      else await sendVideoWithFallback(sock, chatId, message, mediaUrl, caption);
     }
     return;
   }
 
-  if (result.audio) {
-    const optimized = await optimizeAudio(result.audio, { bitrate: '96k', mono: false });
-    try { return await sock.sendMessage(chatId, { audio: { url: optimized }, mimetype: 'audio/mpeg', fileName: 'audio.mp3', ptt: false }, { quoted: message }); }
-    finally { cleanup(optimized); }
-  }
+  if (result.audio) return sendAudioWithFallback(sock, chatId, message, result.audio);
 
   if (result.video || result.download) {
     const source = result.video || result.download;
-    const optimized = await optimizeVideo(source, { maxWidth: 640, crf: 32, audioBitrate: '64k' });
-    try {
-      return await sock.sendMessage(chatId, { video: { url: optimized }, mimetype: 'video/mp4', fileName: `${String(result.title || 'video').replace(/[\\/:*?"<>|]/g, '').slice(0, 70) || 'video'}.mp4`, caption: t('download.generic.caption', '', { url: originalUrl }) }, { quoted: message });
-    } finally { cleanup(optimized); }
+    const fileName = `${String(result.title || 'video').replace(/[\\/:*?"<>|]/g, '').slice(0, 70) || 'video'}.mp4`;
+    return sendVideoWithFallback(sock, chatId, message, source, caption, fileName);
   }
 
   throw new Error('Unsupported media result');
@@ -60,11 +98,11 @@ async function sendDirectMedia(sock, chatId, message, href) {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'leobot-download-'));
   const tmpPath = path.join(tmpDir, 'source');
   try {
-    const response = await axios.get(href, { responseType: 'stream', timeout: 90000, maxRedirects: 5, maxContentLength: 100 * 1024 * 1024, maxBodyLength: 100 * 1024 * 1024, headers: { 'User-Agent': 'Mozilla/5.0', Accept: '*/*' }, validateStatus: s => s >= 200 && s < 300 });
+    const response = await axios.get(href, { responseType: 'stream', timeout: 90000, maxRedirects: 5, maxContentLength: 1024 * 1024 * 1024, maxBodyLength: 1024 * 1024 * 1024, headers: { 'User-Agent': 'Mozilla/5.0', Accept: '*/*' }, validateStatus: s => s >= 200 && s < 300 });
     await new Promise((resolve, reject) => {
       const out = fs.createWriteStream(tmpPath);
       let total = 0;
-      response.data.on('data', chunk => { total += chunk.length; if (total > 100 * 1024 * 1024) response.data.destroy(new Error('الملف يتجاوز الحد المسموح.')); });
+      response.data.on('data', chunk => { total += chunk.length; if (total > 1024 * 1024 * 1024) response.data.destroy(new Error('الملف يتجاوز الحد المسموح.')); });
       response.data.on('error', reject); out.on('error', reject); out.on('finish', resolve); response.data.pipe(out);
     });
     const detected = await fileType.fromFile(tmpPath).catch(() => null);

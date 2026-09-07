@@ -13,7 +13,7 @@ const cheerio = require('cheerio');
 const API_BASE = 'https://bk9.fun';
 const MAX_RESULTS = 5;
 const SESSION_TTL_MS = 10 * 60_000;
-const MAX_APK_BYTES = 100 * 1024 * 1024;
+const MAX_APK_BYTES = 1024 * 1024 * 1024;
 const APK_ZIP_THRESHOLD_BYTES = 50 * 1024 * 1024;
 const sessions = new Map();
 
@@ -67,19 +67,36 @@ function parseSelection(args) {
 function isCancel(args) { return /^(cancel|الغاء|إلغاء)$/i.test(String(args?.join(' ') || '').trim()); }
 
 async function resolveDownloadUrl(result) {
-  if (isHttpUrl(result.directUrl) && !/apkpure\.net/i.test(result.directUrl)) return result.directUrl;
-  if (isHttpUrl(result.directUrl) && /apkpure\.net/i.test(result.directUrl)) {
-    const page = await axios.get(result.directUrl, { timeout: 25_000, headers: { 'User-Agent': 'Mozilla/5.0' } });
-    const $ = cheerio.load(page.data || '');
-    const links = $('a').map((_, el) => $(el).attr('href') || '').get();
-    const candidate = links.find(h => /\.(?:apk|xapk)(?:$|[?#])/i.test(h)) || links.find(h => /download/i.test(h) && /^https?:\/\//i.test(h));
-    if (candidate) return candidate.startsWith('http') ? candidate : new URL(candidate, result.directUrl).href;
-    throw new Error('APKPure download link not found');
+  if (!isHttpUrl(result.directUrl)) {
+    if (!result.id) return null;
+    const response = await axios.get(`${API_BASE}/download/apk`, { params: { id: result.id }, timeout: 30_000 });
+    const data = response.data;
+    return textValue(data?.BK9?.dllink, data?.result?.dllink, data?.data?.dllink, data?.dllink, data?.url);
   }
-  if (!result.id) return null;
-  const response = await axios.get(`${API_BASE}/download/apk`, { params: { id: result.id }, timeout: 30_000 });
-  const data = response.data;
-  return textValue(data?.BK9?.dllink, data?.result?.dllink, data?.data?.dllink, data?.dllink, data?.url);
+
+  const direct = result.directUrl;
+  const host = new URL(direct).hostname.toLowerCase();
+  const isStorePage = /(?:apkpure\.net|apkcombo\.com)$/i.test(host) || /\.apkcombo\.com$/i.test(host);
+  if (!isStorePage) return direct;
+
+  const page = await axios.get(direct, {
+    timeout: 30_000,
+    maxRedirects: 5,
+    headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36', 'Accept-Language': 'ar,en;q=0.8' }
+  });
+  const $ = cheerio.load(page.data || '');
+  const hrefs = $('a[href]').map((_, el) => String($(el).attr('href') || '').trim()).get();
+
+  // APKCombo exposes a short /r2?u=... redirect to the signed APK/XAPK object.
+  const combo = hrefs.find(h => /\/r2\?u=/i.test(h))
+    || hrefs.find(h => /(?:\.apk|\.xapk|\.apks)(?:$|[?#])/i.test(h));
+  if (combo) return combo.startsWith('http') ? combo : new URL(combo, direct).href;
+
+  // APKPure pages often expose the actual download URL behind a button.
+  const apkPure = hrefs.find(h => /download/i.test(h) && /^https?:\/\//i.test(h))
+    || hrefs.find(h => /download/i.test(h) && !/^javascript:/i.test(h));
+  if (apkPure) return apkPure.startsWith('http') ? apkPure : new URL(apkPure, direct).href;
+  throw new Error('APK download link not found');
 }
 
 async function sendSearchResults(sock, chatId, message, results) {
@@ -124,12 +141,12 @@ async function downloadAndSend(sock, chatId, message, result) {
   const contentType = String(response.headers['content-type'] || '').toLowerCase();
   const contentLength = Number(response.headers['content-length'] || 0);
   if (contentLength > MAX_APK_BYTES) throw new Error('APK exceeds size limit');
-  if (contentType && !contentType.includes('android.package') && !contentType.includes('application/zip') && !contentType.includes('octet-stream')) {
-    if (!looksLikeApkUrl(url)) throw new Error(`Unexpected content type: ${contentType}`);
+  if (contentType && !contentType.includes('android.package') && !contentType.includes('application/zip') && !contentType.includes('octet-stream') && !contentType.includes('xapk') && !contentType.includes('apks')) {
+    if (!looksLikeApkUrl(url) && !/\.(?:xapk|apks)(?:$|[?#])/i.test(url)) throw new Error(`Unexpected content type: ${contentType}`);
   }
 
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'leobot-apk-'));
-  const tmpPath = path.join(tmpDir, `${crypto.randomUUID()}.apk`);
+  const tmpPath = path.join(tmpDir, `${crypto.randomUUID()}.package`);
   let total = 0;
   try {
     await new Promise((resolve, reject) => {
@@ -150,16 +167,22 @@ async function downloadAndSend(sock, chatId, message, result) {
 
     if (total <= 0) throw new Error('Empty APK');
     const detected = await fileType.fromFile(tmpPath).catch(() => null);
-    if (detected && detected.mime !== 'application/zip' && detected.ext !== 'apk') {
-      throw new Error(`Downloaded file is not an APK/ZIP: ${detected.mime}`);
-    }
+    const contentTypeLower = String(response.headers['content-type'] || '').toLowerCase();
+    const urlLower = String(url).toLowerCase();
+    const isXapk = contentTypeLower.includes('xapk') || /\.xapk(?:$|[?#])/i.test(urlLower) || /xapk-package-archive/i.test(contentTypeLower);
+    const isApks = contentTypeLower.includes('apks') || /\.apks(?:$|[?#])/i.test(urlLower);
+    const isZipLike = detected?.mime === 'application/zip' || detected?.ext === 'zip' || isXapk || isApks;
+    const isApk = detected?.ext === 'apk' || contentTypeLower.includes('android.package');
+    if (!isApk && !isZipLike) throw new Error(`Downloaded file is not an APK/XAPK/APKS: ${detected?.mime || contentTypeLower || 'unknown'}`);
     const finalSize = (await fs.stat(tmpPath)).size;
     const baseName = safeName(result.name);
-    if (finalSize <= APK_ZIP_THRESHOLD_BYTES) {
+    const packageExt = isXapk ? 'xapk' : isApks ? 'apks' : 'apk';
+    const packageMime = isXapk ? 'application/xapk-package-archive' : isApks ? 'application/octet-stream' : 'application/vnd.android.package-archive';
+    if (finalSize <= APK_ZIP_THRESHOLD_BYTES || packageExt !== 'apk') {
       await sock.sendMessage(chatId, {
         document: fs.createReadStream(tmpPath),
-        mimetype: 'application/vnd.android.package-archive',
-        fileName: `${baseName}.apk`,
+        mimetype: packageMime,
+        fileName: `${baseName}.${packageExt}`,
         caption: t('commands.apk.caption', '', { name: result.name, version: result.version, source: result.source })
       }, { quoted: message });
     } else {
@@ -178,6 +201,83 @@ async function downloadAndSend(sock, chatId, message, result) {
   }
 }
 
+
+function slugifySearch(query) {
+  return String(query || '')
+    .normalize('NFKC')
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 120);
+}
+
+function isApkComboAppPath(href) {
+  return /^\/ar\/[^/]+\/[^/]+\/?$/i.test(href) || /^\/[^/]+\/[^/]+\/?$/i.test(href);
+}
+
+async function enrichApkComboResult(result) {
+  if (!result?.directUrl) return result;
+  try {
+    const res = await axios.get(result.directUrl, {
+      timeout: 20_000,
+      maxRedirects: 5,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36', 'Accept-Language': 'ar,en;q=0.8' }
+    });
+    const $ = cheerio.load(res.data || '');
+    const text = $('body').text().replace(/\s+/g, ' ');
+    const name = textValue($('h1').first().text(), result.name);
+    const version = textValue(
+      text.match(/(?:Latest Version|Current Version|Version|الإصدار)\s*[:\-]?\s*([0-9]+(?:\.[0-9A-Za-z_-]+){1,5})/i)?.[1],
+      $('meta[itemprop="softwareVersion"]').attr('content'),
+      result.version
+    );
+    const size = textValue(
+      text.match(/(?:Download APK|تحميل APK)\s*\(\s*([0-9]+(?:\.[0-9]+)?\s*(?:KB|MB|GB))\s*\)/i)?.[1],
+      text.match(/(?:APK|XAPK)\s*([0-9]+(?:\.[0-9]+)?\s*(?:KB|MB|GB))/i)?.[1],
+      result.size
+    );
+    const image = textValue($('meta[property="og:image"]').attr('content'), $('meta[name="twitter:image"]').attr('content'), result.image);
+    const downloadHref = $('a[href]').map((_, el) => String($(el).attr('href') || '')).get()
+      .find(h => /\/download\/apk\/?$/i.test(h) || /\/download\//i.test(h));
+    const downloadPage = downloadHref ? (downloadHref.startsWith('http') ? downloadHref : new URL(downloadHref, result.directUrl).href) : result.directUrl;
+    return { ...result, name: name || result.name, version: version || result.version, size: size || result.size, image, directUrl: downloadPage };
+  } catch (error) {
+    console.warn('[APK] APKCombo metadata unavailable:', error.message);
+    return result;
+  }
+}
+
+async function searchApkCombo(query) {
+  const slug = slugifySearch(query);
+  if (!slug) return [];
+  const url = `https://apkcombo.com/ar/search/${encodeURIComponent(slug)}`;
+  const res = await axios.get(url, {
+    timeout: 25_000,
+    maxRedirects: 5,
+    headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36', 'Accept-Language': 'ar,en;q=0.8' }
+  });
+  const $ = cheerio.load(res.data || '');
+  const seen = new Set();
+  const results = [];
+  $('a[href]').each((_, el) => {
+    const href = String($(el).attr('href') || '').trim();
+    if (!isApkComboAppPath(href)) return;
+    const absolute = href.startsWith('http') ? href : `https://apkcombo.com${href}`;
+    const normalized = absolute.replace(/\/$/, '');
+    if (seen.has(normalized) || /\/search(?:\/|$)/i.test(normalized)) return;
+    const pathParts = new URL(normalized).pathname.split('/').filter(Boolean);
+    if (pathParts.length < 2) return;
+    const packageId = pathParts[pathParts.length - 1];
+    const rawName = textValue($(el).find('h2,h3,.name,.title').first().text(), $(el).attr('title'), $(el).text());
+    const name = rawName.replace(/\s+/g, ' ').trim();
+    if (!name || name.length < 2) return;
+    seen.add(normalized);
+    results.push({ index: results.length + 1, id: packageId, name: name.slice(0, 100), source: 'APKCombo', version: 'غير معروف', size: 'غير معروف', image: '', directUrl: normalized });
+  });
+  const unique = results.slice(0, MAX_RESULTS);
+  return Promise.all(unique.map(enrichApkComboResult));
+}
 
 async function searchApkPure(query) {
   const url = `https://apkpure.net/search?q=${encodeURIComponent(query)}`;
@@ -288,18 +388,23 @@ async function apkCommand(sock, chatId, message, args, context = {}) {
     await sock.sendMessage(chatId, { text: t('commands.apk.searching', '🔍 جاري البحث عن التطبيقات...') }, { quoted: message });
     let results = [];
     try {
-      const search = await axios.get(`${API_BASE}/search/apk`, { params: { q: input }, timeout: 15_000 });
-      const raw = extractResults(search.data);
-      results = raw.slice(0, MAX_RESULTS).map(normalizeResult).filter(r => r.name);
-    } catch (bk9Error) {
-      console.warn('[APK] BK9 search unavailable:', bk9Error?.message || bk9Error);
+      results = await searchApkCombo(input);
+    } catch (apkComboError) {
+      console.warn('[APK] APKCombo search unavailable:', apkComboError?.message || apkComboError);
+    }
+    if (!results.length) {
+      try {
+        const search = await axios.get(`${API_BASE}/search/apk`, { params: { q: input }, timeout: 15_000 });
+        const raw = extractResults(search.data);
+        results = raw.slice(0, MAX_RESULTS).map(normalizeResult).filter(r => r.name);
+      } catch (bk9Error) {
+        console.warn('[APK] BK9 search unavailable:', bk9Error?.message || bk9Error);
+      }
     }
     if (!results.length) {
       try {
         results = await searchApkPure(input);
-        if (results.length) {
-          results = await Promise.all(results.map(enrichApkPureResult));
-        }
+        if (results.length) results = await Promise.all(results.map(enrichApkPureResult));
       } catch (apkPureError) {
         console.warn('[APK] APKPure search unavailable:', apkPureError?.message || apkPureError);
       }
