@@ -361,3 +361,9 @@
 - إزالة alias `.رصيدي` مع الإبقاء على `.رصيد`.
 - تطوير `.أخبار`: إزالة الروابط من القائمة، دعم البحث عبر `.أخبار <الخبر>`, وإضافة عرض الخبر المختار بشكل مكبّر عند الرد برقم الخبر.
 - إصلاح `.معلومات المجموعة` مع معالجة أكثر أمانًا لمعرفات المشاركين والمالك ورسالة الخطأ.
+
+## v1.37.6 — runtime fixes (2026-09-07)
+- `.لوجو`: Arabic text now keeps the original Ephoto360 template/background and replaces only the generated Latin word, instead of switching to an unrelated local design.
+- `.تطبيق`: search results are ranked by relevance across multiple sources; Arabic common app names are normalized; APKCombo download flow now handles its current check-in/variant flow; maximum package size raised to 2 GB.
+- `.تحميل` / `.تنزيل`: added AllDL as another universal provider/fallback for YouTube, TikTok, Instagram, Facebook and additional public social links; direct media cap raised to 2 GB.
+- `.منع الحذف`: removed the phone-number line from the deletion report; the bot itself remains the only protected sender from anti-delete reports.

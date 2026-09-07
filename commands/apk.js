@@ -13,7 +13,8 @@ const cheerio = require('cheerio');
 const API_BASE = 'https://bk9.fun';
 const MAX_RESULTS = 5;
 const SESSION_TTL_MS = 10 * 60_000;
-const MAX_APK_BYTES = 1024 * 1024 * 1024;
+const MAX_APK_BYTES = 2 * 1024 * 1024 * 1024;
+const DOWNLOAD_TIMEOUT_MS = 180_000;
 const APK_ZIP_THRESHOLD_BYTES = 50 * 1024 * 1024;
 const sessions = new Map();
 
@@ -66,6 +67,71 @@ function parseSelection(args) {
 }
 function isCancel(args) { return /^(cancel|الغاء|إلغاء)$/i.test(String(args?.join(' ') || '').trim()); }
 
+async function resolveApkComboDownload(pageUrl) {
+  const common = {
+    timeout: 30_000,
+    maxRedirects: 5,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36',
+      'Accept-Language': 'ar,en;q=0.8',
+      Referer: pageUrl,
+      Origin: 'https://apkcombo.com'
+    }
+  };
+
+  // APKCombo currently uses a /checkin token for variant links. The token is
+  // deliberately requested immediately before parsing the download page.
+  let checkin = '';
+  try {
+    const check = await axios.post('https://apkcombo.com/checkin', null, common);
+    checkin = String(check.data || '').trim().replace(/^\?/, '');
+  } catch (error) {
+    console.warn('[APK] APKCombo checkin unavailable:', error.message);
+  }
+
+  const page = await axios.get(pageUrl, common);
+  const $ = cheerio.load(page.data || '');
+  const hrefs = $('a[href]').map((_, el) => String($(el).attr('href') || '').trim()).get();
+
+  const direct = hrefs.find(h => /\/r2\?u=/i.test(h));
+  if (direct) {
+    try {
+      const parsed = new URL(direct.startsWith('http') ? direct : new URL(direct, pageUrl).href);
+      const encoded = parsed.searchParams.get('u');
+      if (encoded) return decodeURIComponent(encoded);
+    } catch {}
+  }
+
+  const variants = hrefs.filter(h => /(?:\.apk|\.xapk|\.apks)(?:$|[?#])/i.test(h) || /\/download\//i.test(h));
+  if (variants.length && checkin) {
+    for (const href of variants) {
+      const absolute = href.startsWith('http') ? href : new URL(href, pageUrl).href;
+      const candidate = absolute.includes('?') ? `${absolute}&${checkin}` : `${absolute}?${checkin}`;
+      try {
+        const head = await axios.head(candidate, { ...common, timeout: 20_000, validateStatus: s => s >= 200 && s < 400 });
+        const type = String(head.headers?.['content-type'] || '').toLowerCase();
+        const location = head.headers?.location;
+        if (location && isHttpUrl(location)) return location;
+        if (type.includes('android') || type.includes('zip') || type.includes('octet-stream') || /\.(?:apk|xapk|apks)(?:$|[?#])/i.test(candidate)) return candidate;
+      } catch {}
+    }
+  }
+
+  const xidMatch = String(page.data || '').match(/(?:xid|download_id|file_id)\s*[:=]\s*["']([^"']+)["']/i);
+  if (xidMatch?.[1]) {
+    try {
+      const dl = await axios.post(`https://apkcombo.com/${encodeURIComponent(xidMatch[1])}/dl`, null, common);
+      const body = typeof dl.data === 'string' ? dl.data : JSON.stringify(dl.data || {});
+      const match = body.match(/https?:\\?\/\\?\/[^"'\\s<>]+\.(?:apk|xapk|apks)(?:\?[^"'\\s<>]*)?/i);
+      if (match && isHttpUrl(match[0])) return match[0].replace(/\\\//g, '/');
+    } catch (error) {
+      console.warn('[APK] APKCombo xid download unavailable:', error.message);
+    }
+  }
+
+  throw new Error('APKCombo direct download link not found');
+}
+
 async function resolveDownloadUrl(result) {
   if (!isHttpUrl(result.directUrl)) {
     if (!result.id) return null;
@@ -76,7 +142,11 @@ async function resolveDownloadUrl(result) {
 
   const direct = result.directUrl;
   const host = new URL(direct).hostname.toLowerCase();
-  const isStorePage = /(?:apkpure\.net|apkcombo\.com)$/i.test(host) || /\.apkcombo\.com$/i.test(host);
+  if (/(?:^|\.)apkcombo\.com$/i.test(host) && /\/download\//i.test(new URL(direct).pathname)) {
+    return resolveApkComboDownload(direct);
+  }
+
+  const isStorePage = /(?:apkpure\.net)$/i.test(host) || /\.apkcombo\.com$/i.test(host);
   if (!isStorePage) return direct;
 
   const page = await axios.get(direct, {
@@ -86,19 +156,12 @@ async function resolveDownloadUrl(result) {
   });
   const $ = cheerio.load(page.data || '');
   const hrefs = $('a[href]').map((_, el) => String($(el).attr('href') || '').trim()).get();
-
-  // APKCombo exposes a short /r2?u=... redirect to the signed APK/XAPK object.
-  const combo = hrefs.find(h => /\/r2\?u=/i.test(h))
-    || hrefs.find(h => /(?:\.apk|\.xapk|\.apks)(?:$|[?#])/i.test(h));
-  if (combo) return combo.startsWith('http') ? combo : new URL(combo, direct).href;
-
-  // APKPure pages often expose the actual download URL behind a button.
-  const apkPure = hrefs.find(h => /download/i.test(h) && /^https?:\/\//i.test(h))
-    || hrefs.find(h => /download/i.test(h) && !/^javascript:/i.test(h));
-  if (apkPure) return apkPure.startsWith('http') ? apkPure : new URL(apkPure, direct).href;
+  const directFile = hrefs.find(h => /(?:\.apk|\.xapk|\.apks)(?:$|[?#])/i.test(h));
+  if (directFile) return directFile.startsWith('http') ? directFile : new URL(directFile, direct).href;
+  const downloadHref = hrefs.find(h => /download/i.test(h) && !/^javascript:/i.test(h));
+  if (downloadHref) return downloadHref.startsWith('http') ? downloadHref : new URL(downloadHref, direct).href;
   throw new Error('APK download link not found');
 }
-
 async function sendSearchResults(sock, chatId, message, results) {
   await sock.sendMessage(chatId, { text: t('commands.apk.resultsTitle', '🔎 نتائج البحث عن APK:') }, { quoted: message });
   for (const item of results) {
@@ -131,8 +194,8 @@ async function downloadAndSend(sock, chatId, message, result) {
 
   const response = await axios.get(url, {
     responseType: 'stream',
-    timeout: 60_000,
-    maxRedirects: 5,
+    timeout: DOWNLOAD_TIMEOUT_MS,
+    maxRedirects: 8,
     maxContentLength: MAX_APK_BYTES,
     maxBodyLength: MAX_APK_BYTES,
     validateStatus: status => status >= 200 && status < 300
@@ -338,6 +401,49 @@ async function searchFdroid(query) {
   } catch { return []; }
 }
 
+
+function normalizeSearchText(value) {
+  let text = String(value || '').toLowerCase().normalize('NFKC');
+  const aliases = [
+    [/واتساب/g, ' whatsapp '], [/واتس/g, ' whatsapp '], [/فيس ?بوك/g, ' facebook '],
+    [/انستغرام|انستجرام|انستا/g, ' instagram '], [/تيك ?توك/g, ' tiktok '],
+    [/يوتيوب/g, ' youtube '], [/تليجرام|تلجرام/g, ' telegram '], [/سبوتيفاي/g, ' spotify '],
+    [/كروم/g, ' chrome '], [/فايرفوكس/g, ' firefox '], [/سناب ?شات/g, ' snapchat ']
+  ];
+  for (const [pattern, replacement] of aliases) text = text.replace(pattern, replacement);
+  return text.replace(/[._-]+/g, ' ').replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function scoreApkResult(query, item) {
+  const q = normalizeSearchText(query);
+  const name = normalizeSearchText(item.name);
+  const id = normalizeSearchText(item.id);
+  if (!q || !name) return 0;
+  if (name === q) return 1;
+  const qTokens = q.split(' ').filter(Boolean);
+  const hay = `${name} ${id}`;
+  const matched = qTokens.filter(token => hay.includes(token)).length;
+  let score = qTokens.length ? matched / qTokens.length : 0;
+  if (name.includes(q)) score += 0.35;
+  if (id === q || id.includes(q.replace(/\s+/g, ''))) score += 0.3;
+  return Math.min(1, score);
+}
+
+function rankApkResults(query, results) {
+  const dedupe = new Map();
+  for (const item of results || []) {
+    const key = normalizeSearchText(item.id || item.name);
+    const previous = dedupe.get(key);
+    if (!previous || scoreApkResult(query, item) > scoreApkResult(query, previous)) dedupe.set(key, item);
+  }
+  return [...dedupe.values()]
+    .map(item => ({ item, score: scoreApkResult(query, item) }))
+    .filter(x => x.score >= 0.45)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_RESULTS)
+    .map((x, i) => ({ ...x.item, index: i + 1 }));
+}
+
 async function apkCommand(sock, chatId, message, args, context = {}) {
   const input = String(args?.join(' ') || '').trim();
   const key = sessionKey(chatId, context);
@@ -386,31 +492,19 @@ async function apkCommand(sock, chatId, message, args, context = {}) {
 
   try {
     await sock.sendMessage(chatId, { text: t('commands.apk.searching', '🔍 جاري البحث عن التطبيقات...') }, { quoted: message });
-    let results = [];
-    try {
-      results = await searchApkCombo(input);
-    } catch (apkComboError) {
-      console.warn('[APK] APKCombo search unavailable:', apkComboError?.message || apkComboError);
+    const settled = await Promise.allSettled([
+      searchApkCombo(input),
+      axios.get(`${API_BASE}/search/apk`, { params: { q: input }, timeout: 15_000 }).then(r => extractResults(r.data).slice(0, MAX_RESULTS).map(normalizeResult)),
+      searchApkPure(input).then(results => Promise.all(results.map(enrichApkPureResult))),
+      searchFdroid(input)
+    ]);
+    const allResults = [];
+    for (const item of settled) {
+      if (item.status === 'fulfilled' && Array.isArray(item.value)) allResults.push(...item.value);
+      else if (item.status === 'rejected') console.warn('[APK] Search provider failed:', item.reason?.message || item.reason);
     }
-    if (!results.length) {
-      try {
-        const search = await axios.get(`${API_BASE}/search/apk`, { params: { q: input }, timeout: 15_000 });
-        const raw = extractResults(search.data);
-        results = raw.slice(0, MAX_RESULTS).map(normalizeResult).filter(r => r.name);
-      } catch (bk9Error) {
-        console.warn('[APK] BK9 search unavailable:', bk9Error?.message || bk9Error);
-      }
-    }
-    if (!results.length) {
-      try {
-        results = await searchApkPure(input);
-        if (results.length) results = await Promise.all(results.map(enrichApkPureResult));
-      } catch (apkPureError) {
-        console.warn('[APK] APKPure search unavailable:', apkPureError?.message || apkPureError);
-      }
-    }
-    if (!results.length) results = await searchFdroid(input);
-    if (!results.length) return sock.sendMessage(chatId, { text: t('commands.apk.notFound', '', { query: input }) }, { quoted: message });
+    const results = rankApkResults(input, allResults);
+    if (!results.length) return sock.sendMessage(chatId, { text: `❌ لم أجد تطبيقًا يطابق «${input}» بدرجة ثقة كافية. جرّب الاسم الإنجليزي أو اسم الحزمة مثل com.example.app.` }, { quoted: message });
     sessions.set(key, { query: input, results, expiresAt: Date.now() + SESSION_TTL_MS, selected: null });
     await sendSearchResults(sock, chatId, message, results);
   } catch (error) {

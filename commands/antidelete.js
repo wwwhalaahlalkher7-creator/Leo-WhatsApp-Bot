@@ -248,7 +248,6 @@ async function handleMessageRevocation(sock, revocationMessage) {
         let text = `*🔰 تقرير منع الحذف 🔰*\n\n` +
             `*🗑️ حُذفت بواسطة:* @${deletedBy.split('@')[0]}\n` +
             `*👤 المرسل:* @${senderName}\n` +
-            `*📱 الرقم:* ${sender}\n` +
             `*🕒 الوقت:* ${time}\n`;
 
         if (groupName) text += `*👥 المجموعة:* ${groupName}\n`;

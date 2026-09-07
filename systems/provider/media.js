@@ -9,5 +9,6 @@ module.exports = Object.freeze({
   tiktok: (...args) => impl().tiktok(...args),
   instagram: (...args) => impl().instagram(...args),
   facebook: (...args) => impl().facebook(...args),
+  allDl: (...args) => impl().allDl(...args),
   fetchMedia: (...args) => impl().fetchMedia(...args),
 });

@@ -4,7 +4,7 @@ const fs = require('fs-extra');
 const os = require('os');
 const path = require('path');
 const fileType = require('file-type');
-const { youtubeAudio, youtubeVideo, tiktok, instagram, facebook, fetchMedia } = require('../systems/provider/media');
+const { youtubeAudio, youtubeVideo, tiktok, instagram, facebook, allDl, fetchMedia } = require('../systems/provider/media');
 const { t } = require('../lib/i18n');
 const { optimizeAudio, optimizeVideo, cleanup } = require('../lib/media-optimizer');
 
@@ -98,11 +98,11 @@ async function sendDirectMedia(sock, chatId, message, href) {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'leobot-download-'));
   const tmpPath = path.join(tmpDir, 'source');
   try {
-    const response = await axios.get(href, { responseType: 'stream', timeout: 90000, maxRedirects: 5, maxContentLength: 1024 * 1024 * 1024, maxBodyLength: 1024 * 1024 * 1024, headers: { 'User-Agent': 'Mozilla/5.0', Accept: '*/*' }, validateStatus: s => s >= 200 && s < 300 });
+    const response = await axios.get(href, { responseType: 'stream', timeout: 90000, maxRedirects: 5, maxContentLength: 2 * 1024 * 1024 * 1024, maxBodyLength: 2 * 1024 * 1024 * 1024, headers: { 'User-Agent': 'Mozilla/5.0', Accept: '*/*' }, validateStatus: s => s >= 200 && s < 300 });
     await new Promise((resolve, reject) => {
       const out = fs.createWriteStream(tmpPath);
       let total = 0;
-      response.data.on('data', chunk => { total += chunk.length; if (total > 1024 * 1024 * 1024) response.data.destroy(new Error('الملف يتجاوز الحد المسموح.')); });
+      response.data.on('data', chunk => { total += chunk.length; if (total > 2 * 1024 * 1024 * 1024) response.data.destroy(new Error('الملف يتجاوز الحد المسموح.')); });
       response.data.on('error', reject); out.on('error', reject); out.on('finish', resolve); response.data.pipe(out);
     });
     const detected = await fileType.fromFile(tmpPath).catch(() => null);
@@ -141,7 +141,9 @@ async function mediaDownloadCommand(sock, chatId, message, args) {
       result = await instagram(href);
     } else if (/facebook\.com$|fb\.watch$/.test(host)) {
       result = await facebook(href);
-    } else if (/\.(mp4|webm|mov|m4v|mp3|m4a|aac|ogg|jpg|jpeg|png|webp)(\?.*)?$/i.test(href)) {
+    } else if (/(^|\.)x\.com$|(^|\.)twitter\.com$|(^|\.)reddit\.com$|(^|\.)redd\.it$|(^|\.)pinterest\.com$|(^|\.)pin\.it$|(^|\.)threads\.net$|(^|\.)snapchat\.com$|(^|\.)capcut\.com$|(^|\.)douyin\.com$/i.test(host)) {
+      result = await allDl(href);
+    } else if (/\.(mp4|webm|mov|m4v|mp3|m4a|aac|ogg|jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(href)) {
       const ext = (href.match(/\.(mp4|webm|mov|m4v|mp3|m4a|aac|ogg|jpg|jpeg|png|webp)(?:\?.*)?$/i)?.[1] || 'bin').toLowerCase();
       const type = ['jpg','jpeg','png','webp'].includes(ext) ? 'image' : ['mp3','m4a','aac','ogg'].includes(ext) ? 'audio' : 'video';
       if (type === 'image') {
