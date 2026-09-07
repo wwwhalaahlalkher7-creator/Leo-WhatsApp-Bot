@@ -67,7 +67,7 @@ async function handleYtdlpQualityReply(sock, chatId, message, senderId, text) {
   let job;
   try {
     await sock.sendMessage(chatId, { text: `⏳ جاري تنزيل *${selected.height}p* بواسطة yt-dlp...` }, { quoted: message });
-    job = await download(session.data.href, selected.selector, { title: session.data.title });
+    job = await download(session.data.href, selected.selector, { title: session.data.title, extractorApi: session.data.extractorApi });
     job.url = session.data.href;
     await sendVideo(sock, chatId, message, job, selected);
   } catch (error) {
@@ -100,14 +100,14 @@ async function snaptubeCommand(sock, chatId, message, args = [], ctx = {}) {
           chatId,
           ownerId: senderId,
           activeMessageId: sent.key.id,
-          data: { href, title: info.title || 'video', options: info.options }
+          data: { href, title: info.title || 'video', options: info.options, extractorApi: info.extractorApi }
         });
       }
       return;
     }
 
     if (info.type === 'audio') {
-      const job = await downloadAudio(href, info.title);
+      const job = await downloadAudio(href, info.title, { extractorApi: info.extractorApi });
       try {
         const optimized = await optimizeAudio(job.path, { bitrate: '128k', mono: false });
         try {
@@ -118,7 +118,7 @@ async function snaptubeCommand(sock, chatId, message, args = [], ctx = {}) {
     }
 
     if (info.type === 'image') {
-      const job = await downloadBestImage(href, info.title);
+      const job = await downloadBestImage(href, info.title, { extractorApi: info.extractorApi });
       try {
         const optimized = await optimizeImage(job.path, { maxWidth: 1920, quality: 84 });
         try {

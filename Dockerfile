@@ -12,7 +12,7 @@ COPY package*.json ./
 RUN if [ -f package-lock.json ]; then npm ci --legacy-peer-deps --no-audit --no-fund; else npm install --legacy-peer-deps --no-audit --no-fund; fi
 
 COPY requirements.txt ./
-RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt && pip3 install --no-cache-dir --break-system-packages -U --pre "yt-dlp[default]"
 
 COPY . .
 
