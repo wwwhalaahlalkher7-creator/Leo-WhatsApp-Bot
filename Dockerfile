@@ -17,7 +17,7 @@ RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt \
     && pip3 install --no-cache-dir --break-system-packages -U bgutil-ytdlp-pot-provider \
     && git clone --depth 1 --branch 1.3.1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /opt/bgutil-ytdlp-pot-provider \
     && cd /opt/bgutil-ytdlp-pot-provider/server \
-    && npm ci --no-audit --no-fund \
+    && npm ci --include=dev --no-audit --no-fund \
     && ./node_modules/.bin/tsc \
     && npm prune --omit=dev
 
