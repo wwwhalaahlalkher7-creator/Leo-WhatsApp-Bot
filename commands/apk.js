@@ -35,14 +35,15 @@ function textValue(...values) {
 }
 
 function normalizeResult(item, index) {
+  const meta = item?.metadata || item?.details || item?.info || item?.app || item;
   const source = textValue(item?.source, item?.site, item?.provider, item?.host, item?.website, 'BK9');
-  const name = textValue(item?.name, item?.title, item?.appName, item?.app_name, 'Unknown App');
-  const version = textValue(item?.version, item?.ver, item?.appVersion, item?.release, 'غير معروف');
-  const size = textValue(item?.size, item?.fileSize, item?.filesize, item?.apkSize, 'غير معروف');
-  const image = textValue(item?.image, item?.imageUrl, item?.icon, item?.iconUrl, item?.thumbnail, item?.thumb);
-  const id = textValue(item?.id, item?.appId, item?.app_id, item?.urlId);
-  const directUrl = textValue(item?.downloadUrl, item?.dllink, item?.download, item?.url);
-  return { index: index + 1, id, name, source, version, size, image, directUrl };
+  const name = textValue(item?.name, item?.title, item?.appName, item?.app_name, meta?.name, meta?.title, 'Unknown App');
+  const version = textValue(item?.version, item?.ver, item?.appVersion, item?.release, meta?.version, meta?.ver, meta?.appVersion);
+  const size = textValue(item?.size, item?.fileSize, item?.filesize, item?.apkSize, meta?.size, meta?.fileSize, meta?.filesize);
+  const image = textValue(item?.image, item?.imageUrl, item?.icon, item?.iconUrl, item?.thumbnail, item?.thumb, meta?.icon, meta?.thumbnail);
+  const id = textValue(item?.id, item?.appId, item?.app_id, item?.urlId, meta?.id, meta?.package_name, meta?.packageName);
+  const directUrl = textValue(item?.downloadUrl, item?.dllink, item?.download, item?.url, meta?.downloadUrl, meta?.download);
+  return { index: index + 1, id, name, source, version: version || 'غير معروف', size: size || 'غير معروف', image, directUrl };
 }
 
 function extractResults(data) {
@@ -64,7 +65,6 @@ function parseSelection(args) {
   return match ? Number(match[1]) : null;
 }
 function isCancel(args) { return /^(cancel|الغاء|إلغاء)$/i.test(String(args?.join(' ') || '').trim()); }
-function isConfirm(args) { return /^(confirm|yes|نعم|موافق|تحميل)$/i.test(String(args?.join(' ') || '').trim()); }
 
 async function resolveDownloadUrl(result) {
   if (isHttpUrl(result.directUrl) && !/apkpure\.net/i.test(result.directUrl)) return result.directUrl;
@@ -204,13 +204,29 @@ async function searchApkPure(query) {
 async function enrichApkPureResult(result) {
   if (!result?.directUrl) return result;
   try {
-    const res = await axios.get(result.directUrl, { timeout: 20_000, headers: { 'User-Agent': 'Mozilla/5.0' } });
+    const res = await axios.get(result.directUrl, { timeout: 20_000, headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36', 'Accept-Language': 'ar,en;q=0.8' } });
     const $ = cheerio.load(res.data || '');
     const text = $('body').text().replace(/\s+/g, ' ');
-    const version = text.match(/(?:Latest Version|أحدث إصدار|Version|الإصدار)\s*([0-9]+(?:\.[0-9]+){1,4})/i)?.[1];
-    const size = text.match(/([0-9]+(?:\.[0-9]+)?)\s*(MB|GB)/i)?.[0];
+    const jsonLd = $('script[type="application/ld+json"]').map((_, el) => $(el).html()).get();
+    let ld = {};
+    for (const raw of jsonLd) { try { const v = JSON.parse(raw); ld = Array.isArray(v) ? (v.find(x => x?.softwareVersion || x?.fileSize) || v[0] || {}) : v; if (ld && typeof ld === 'object') break; } catch {} }
+    const version = textValue(
+      ld?.softwareVersion,
+      $('meta[itemprop="softwareVersion"]').attr('content'),
+      $('meta[name="version"]').attr('content'),
+      text.match(/(?:Latest Version|Latest version|Version|الإصدار|أحدث إصدار)\s*[:\-]?\s*v?([0-9]+(?:\.[0-9]+){1,4})/i)?.[1],
+      text.match(/\bv([0-9]+(?:\.[0-9]+){1,4})\b/i)?.[1]
+    );
+    const size = textValue(
+      ld?.fileSize,
+      $('meta[itemprop="fileSize"]').attr('content'),
+      $('meta[name="fileSize"]').attr('content'),
+      text.match(/(?:File Size|File size|حجم الملف|حجم)\s*[:\-]?\s*([0-9]+(?:\.[0-9]+)?\s*(?:KB|MB|GB))/i)?.[1],
+      text.match(/([0-9]+(?:\.[0-9]+)?\s*(?:KB|MB|GB))\s*(?:APK|Android)?/i)?.[1]
+    );
+    const image = textValue($('meta[property="og:image"]').attr('content'), ld?.image, result.image);
     const canonical = $('link[rel="canonical"]').attr('href');
-    return { ...result, version: version || result.version, size: size || result.size, directUrl: canonical || result.directUrl };
+    return { ...result, version: version || result.version, size: size || result.size, image, directUrl: canonical || result.directUrl };
   } catch { return result; }
 }
 
@@ -218,7 +234,7 @@ async function searchFdroid(query) {
   try {
     const res = await axios.get('https://search.f-droid.org/api/search_apps', { params: { q: query }, timeout: 15_000, headers: { 'User-Agent': 'LeoBot/1.37.6' } });
     const list = Array.isArray(res.data?.apps) ? res.data.apps : (Array.isArray(res.data) ? res.data : []);
-    return list.slice(0, MAX_RESULTS).map((item, i) => ({ index: i + 1, id: item.package_name || item.packageName || '', name: item.name || item.title || 'Unknown App', source: 'F-Droid', version: item.version || 'غير معروف', size: item.size || 'غير معروف', image: item.icon || '', directUrl: item.download_url || item.apk_url || item.url || '' }));
+    return list.slice(0, MAX_RESULTS).map((item, i) => ({ index: i + 1, id: item.package_name || item.packageName || '', name: item.name || item.title || 'Unknown App', source: 'F-Droid', version: item.version || item.versionName || item.latest_version || 'غير معروف', size: item.size || item.apk_size || item.fileSize || item.binary_size || 'غير معروف', image: item.icon || '', directUrl: item.download_url || item.apk_url || item.url || '' }));
   } catch { return []; }
 }
 
@@ -255,22 +271,8 @@ async function apkCommand(sock, chatId, message, args, context = {}) {
     const result = session.results.find(item => item.index === selection);
     if (!result) return sock.sendMessage(chatId, { text: t('commands.apk.invalidSelection', '❌ رقم النتيجة غير صحيح. اختر رقمًا من النتائج.') }, { quoted: message });
     session.selected = result;
-    await sock.sendMessage(chatId, {
-      text: t('commands.apk.confirm', '📦 {name}\n🏷️ الإصدار: {version}\n📦 الحجم: {size}\n🌐 المصدر: {source}\n\nهل تريد تحميل هذا التطبيق؟\n\nاكتب `.تطبيق تأكيد` للمتابعة أو `.تطبيق إلغاء` للإلغاء.', {
-        name: result.name, version: result.version, size: result.size, source: result.source
-      })
-    }, { quoted: message });
-    return;
-  }
-
-  if (isConfirm(args)) {
-    if (!session?.selected || session.expiresAt <= Date.now()) {
-      sessions.delete(key);
-      return sock.sendMessage(chatId, { text: t('commands.apk.expired', '⏰ انتهت صلاحية نتائج البحث. أعد البحث مرة أخرى.') }, { quoted: message });
-    }
-    const result = session.selected;
     try {
-      await sock.sendMessage(chatId, { text: t('commands.apk.downloading', '⬇️ جاري التحقق من ملف APK وتحميله...') }, { quoted: message });
+      await sock.sendMessage(chatId, { text: `⬇️ جاري تحميل *${result.name}*...\n🏷️ الإصدار: ${result.version}\n📦 الحجم: ${result.size}\n🌐 المصدر: ${result.source}` }, { quoted: message });
       await downloadAndSend(sock, chatId, message, result);
       sessions.delete(key);
     } catch (error) {

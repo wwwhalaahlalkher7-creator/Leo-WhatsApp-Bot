@@ -1,3 +1,11 @@
+## v1.37.6-review-3 — latest owner review decisions
+
+- Approved/locked: `.منع الروابط`, `.منع التاق`, `.قول`, `.قولي`, `.كلمات`, `.وصف`, `.وصف المجموعة`, `.اسم`, `.اسم المجموعة`, `.صورة المجموعة`, `.مراقبة`.
+- `.تطبيق`: selection now downloads directly without a confirmation step; APK metadata extraction was strengthened across BK9/APKPure/F-Droid.
+- `.تحميل`: added ReelGrab as a final public fallback for YouTube/TikTok/Instagram/Facebook.
+- `.لوجو`: improved Arabic text preservation.
+- `.اشتراك`: Arabic plan aliases and user-facing labels expanded; command remains under review.
+
 ## v1.37.6-review-2 — owner decisions and runtime hardening
 
 - Locked `.رفع الحظر`, `.سكرين`, and `.معلومات المجموعة` after explicit owner approval.

@@ -39,7 +39,7 @@ function premiumMenuSvg(plans) {
     ${card(45,'basic','Leo Basic','البداية الذكية',p.basic.dailyReward,p.basic.xpBoost,Math.round(p.basic.luckBoost*100),'#60a5fa')}
     ${card(470,'pro','Leo Pro','الخيار المتوازن',p.pro.dailyReward,p.pro.xpBoost,Math.round(p.pro.luckBoost*100),'#a78bfa',true)}
     ${card(895,'ultra','Leo Ultra','التجربة القصوى',p.ultra.dailyReward,p.ultra.xpBoost,Math.round(p.ultra.luckBoost*100),'#f59e0b')}
-    <text x="670" y="875" text-anchor="middle" fill="#9ca3af" font-size="18" font-family="sans-serif">للطلب: .اشتراك شراء basic  •  pro  •  ultra   |   التفعيل بعد تأكيد الدفع</text>
+    <text x="670" y="875" text-anchor="middle" fill="#9ca3af" font-size="18" font-family="sans-serif">للطلب: .اشتراك شراء الأساسي  •  المحترف  •  الألترا   |   التفعيل بعد تأكيد الدفع</text>
   </svg>`;
 }
 
@@ -105,7 +105,7 @@ async function requestPurchase(sock, chatId, userId, message, plan) {
       `📱 المعرّف: ${userId}\n` +
       `💎 الباقة: *${p.name}*\n` +
       `💵 السعر: *${money(p.price)} / شهر*\n\n` +
-      `بعد تأكيد الدفع استخدم:\n*.اشتراك تفعيل @العضو ${plan} 30*`
+      `بعد تأكيد الدفع استخدم:\n*.اشتراك تفعيل @العضو ${plan === 'basic' ? 'الأساسي' : plan === 'pro' ? 'المحترف' : 'الألترا'} 30*`
     });
   }
   return sock.sendMessage(chatId, { text:
@@ -123,17 +123,18 @@ async function subscriptionCommand(sock, chatId, userId, message, args=[]) {
   try {
     const active = subs.get(userId);
     const action = String(args[0] || '').toLowerCase();
+    const planAliases = { basic:'basic', 'الأساسي':'basic', 'اساسي':'basic', 'البداية':'basic', pro:'pro', 'المحترف':'pro', 'احترافي':'pro', ultra:'ultra', 'الألترا':'ultra', 'الالترا':'ultra', 'المتقدم':'ultra' };
     if (!action) return active ? sendCard(sock,chatId,userId,message,active) : sendPremiumMenu(sock,chatId,userId,message);
     if (['حالي','الحالي','status'].includes(action)) return active ? sendCard(sock,chatId,userId,message,active) : sock.sendMessage(chatId,{text:'ℹ️ *لا يوجد لديك اشتراك فعال حاليًا.*\n\nاستخدم `.اشتراك` لعرض الباقات المتاحة.',},{quoted:message});
     if (['شراء','buy','اشترك','اشتراك'].includes(action)) {
-      const plan = String(args[1] || '').toLowerCase();
-      if (!subs.plans()[plan]) return sock.sendMessage(chatId,{text:'❌ اختر باقة صحيحة: *basic* أو *pro* أو *ultra*.\n\nمثال: `.اشتراك شراء pro`'},{quoted:message});
+      const plan = planAliases[String(args[1] || '').toLowerCase()] || String(args[1] || '').toLowerCase();
+      if (!subs.plans()[plan]) return sock.sendMessage(chatId,{text:'❌ اختر باقة صحيحة: *الأساسي* أو *المحترف* أو *الألترا*.\n\nمثال: `.اشتراك شراء المحترف`'},{quoted:message});
       return requestPurchase(sock,chatId,userId,message,plan);
     }
     if (['تفعيل','منح','grant'].includes(action)) {
       if (!(await isOwnerOrSudo(userId,sock,chatId,message?.key?.participantAlt))) return sock.sendMessage(chatId,{text:'❌ هذا الإجراء للمالك فقط.'},{quoted:message});
       const target = input.mentions(message)[0] || input.replySender(message) || userId;
-      const plan = String(args[1] || '').toLowerCase();
+      const plan = planAliases[String(args[1] || '').toLowerCase()] || String(args[1] || '').toLowerCase();
       const days = Number(args[2] || 30);
       if (!subs.plans()[plan]) return sock.sendMessage(chatId,{text:'❌ الباقة غير صحيحة.'},{quoted:message});
       const result = await subs.set(target,plan,days,{grantedBy:userId});
@@ -144,7 +145,7 @@ async function subscriptionCommand(sock, chatId, userId, message, args=[]) {
       await subs.cancel(userId);
       return sock.sendMessage(chatId,{text:'✅ تم إلغاء الاشتراك الحالي.\n\nلن تُصرف مكافآت الدخول اليومية بعد الإلغاء.'},{quoted:message});
     }
-    return sock.sendMessage(chatId,{text:'💎 استخدم `.اشتراك` لعرض الباقات.\n📦 `.اشتراك شراء pro` لطلب باقة.\n📋 `.اشتراك الحالي` لعرض عضويتك.'},{quoted:message});
+    return sock.sendMessage(chatId,{text:'💎 استخدم `.اشتراك` لعرض الباقات.\n📦 `.اشتراك شراء المحترف` لطلب باقة.\n📋 `.اشتراك الحالي` لعرض عضويتك.'},{quoted:message});
   } catch (e) { console.error('[SUBSCRIPTION]',e?.message||e); return sock.sendMessage(chatId,{text:'❌ تعذر معالجة الاشتراك حاليًا.'},{quoted:message}); }
 }
 module.exports = subscriptionCommand;

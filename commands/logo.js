@@ -23,7 +23,7 @@ async function logoCommand(sock, chatId, message, args) {
   const style = styleAliases[rawStyle] || rawStyle;
   const text = args?.slice(1).join(' ').trim();
   const arabicText = /[\u0600-\u06FF]/.test(text);
-  const normalizedText = arabicText ? text.normalize('NFC') : text;
+  const normalizedText = arabicText ? text.normalize('NFC').replace(/[\u200e\u200f]/g, '') : text;
   if (!STYLES[style] || !text) {
     const list = Object.keys(STYLES).map(k => `• ${AR[k]}`).join('\n');
     return sock.sendMessage(chatId, { text: `🎨 *إنشاء شعار*\n\nالاستخدام: *.لوجو <النمط> <النص>*\n\nالأنماط المتاحة:\n${list}\n\nمثال: *.لوجو ناروتو ليو*\nمثال للزخارف: *.لوجو زخرفة محمد*` }, { quoted: message });
@@ -31,6 +31,12 @@ async function logoCommand(sock, chatId, message, args) {
   try {
     await sock.sendMessage(chatId, { text: t('commands.logo.processing') }, { quoted: message });
     const result = await mumaker.ephoto(STYLES[style], normalizedText);
+    // Ephoto accepts Unicode text; preserve Arabic shaping/order exactly as entered.
+    if (!result?.image && arabicText) {
+      const retryText = normalizedText.replace(/\s+/g, ' ').trim();
+      const retry = await mumaker.ephoto(STYLES[style], retryText);
+      if (retry?.image) return sock.sendMessage(chatId, { image: { url: retry.image }, caption: t('commands.logo.caption', '', { style: AR[style] || style }) }, { quoted: message });
+    }
     if (!result?.image) throw new Error('No image returned');
     await sock.sendMessage(chatId, { image: { url: result.image }, caption: t('commands.logo.caption', '', { style: AR[style] || style }) }, { quoted: message });
   } catch (error) {
