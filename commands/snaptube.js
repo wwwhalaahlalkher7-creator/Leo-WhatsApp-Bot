@@ -89,6 +89,7 @@ async function snaptubeCommand(sock, chatId, message, args = [], ctx = {}) {
     await assertPublicHttpUrl(href);
     await sock.sendMessage(chatId, { text: '🟢 *SnapTube / yt-dlp*\n⏳ جاري تحليل الرابط...' }, { quoted: message });
     const info = await probe(href);
+    const resolvedHref = info.resolvedUrl || href;
     const senderId = ctx?.senderId;
 
     if (info.type === 'video') {
@@ -100,14 +101,14 @@ async function snaptubeCommand(sock, chatId, message, args = [], ctx = {}) {
           chatId,
           ownerId: senderId,
           activeMessageId: sent.key.id,
-          data: { href, title: info.title || 'video', options: info.options, extractorApi: info.extractorApi }
+          data: { href: resolvedHref, title: info.title || 'video', options: info.options, extractorApi: info.extractorApi }
         });
       }
       return;
     }
 
     if (info.type === 'audio') {
-      const job = await downloadAudio(href, info.title, { extractorApi: info.extractorApi });
+      const job = await downloadAudio(resolvedHref, info.title, { extractorApi: info.extractorApi });
       try {
         const optimized = await optimizeAudio(job.path, { bitrate: '128k', mono: false });
         try {
@@ -118,11 +119,11 @@ async function snaptubeCommand(sock, chatId, message, args = [], ctx = {}) {
     }
 
     if (info.type === 'image') {
-      const job = await downloadBestImage(href, info.title, { extractorApi: info.extractorApi });
+      const job = await downloadBestImage(resolvedHref, info.title, { extractorApi: info.extractorApi });
       try {
         const optimized = await optimizeImage(job.path, { maxWidth: 1920, quality: 84 });
         try {
-          await sock.sendMessage(chatId, { image: { url: optimized }, mimetype: 'image/jpeg', fileName: 'image.jpg', caption: t('download.generic.caption', '', { url: href }) }, { quoted: message });
+          await sock.sendMessage(chatId, { image: { url: optimized }, mimetype: 'image/jpeg', fileName: 'image.jpg', caption: t('download.generic.caption', '', { url: resolvedHref }) }, { quoted: message });
         } finally { cleanup(optimized); }
       } finally { await cleanupJob(job); }
       return;
