@@ -83,20 +83,30 @@ async function handleAntitagCommand(sock, chatId, userMessage, senderId, isSende
 
 async function handleTagDetection(sock, chatId, message, senderId) {
     try {
+        if (message?.key?.fromMe) return;
         const antitagSetting = await getAntitag(chatId, 'on');
         if (!antitagSetting || !antitagSetting.enabled) return;
 
         // Get mentioned JIDs from contextInfo (proper mentions)
-        const mentionedJids = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-        
-        // Extract text from all possible message types
+        const ci = message.message?.extendedTextMessage?.contextInfo
+            || message.message?.imageMessage?.contextInfo
+            || message.message?.videoMessage?.contextInfo
+            || message.message?.documentMessage?.contextInfo
+            || {};
+        const mentionedJids = Array.isArray(ci.mentionedJid) ? ci.mentionedJid : [];
+
+        // Extract text from all possible message types. WhatsApp can represent
+        // mass-mentions through contextInfo, explicit @all/@everyone text, or
+        // a large list of numeric @mentions.
         const messageText = (
             message.message?.conversation ||
             message.message?.extendedTextMessage?.text ||
             message.message?.imageMessage?.caption ||
             message.message?.videoMessage?.caption ||
+            message.message?.documentMessage?.caption ||
             ''
         );
+        const massMentionToken = /@(all|everyone|الجميع|الكل)|@all\b|@everyone\b/i.test(messageText);
 
         // Find all @mentions in text using improved regex
         // Matches: @123456789, @⁨+91 70239 51514⁩, @~.., @217875470114951, etc.
@@ -125,22 +135,24 @@ async function handleTagDetection(sock, chatId, message, senderId) {
         // This ensures we catch both standard mentions and bot tagall patterns
         const totalMentions = Math.max(mentionedJidCount, numericMentionCount);
 
-        // Check if it's a group message and has multiple mentions
-        if (totalMentions >= 3) {
+        // Explicit mass-mention tokens are an immediate trigger. Otherwise use
+        // the participant threshold so ordinary 1-2 person mentions are not
+        // blocked accidentally.
+        if (massMentionToken || totalMentions >= 3) {
             // Get group participants to check if it's tagging most/all members
             const groupMetadata = await sock.groupMetadata(chatId);
             const participants = groupMetadata.participants || [];
             
             // If mentions are more than 50% of group members, consider it as tagall
-            const mentionThreshold = Math.ceil(participants.length * 0.5);
+            const mentionThreshold = Math.max(2, Math.ceil(participants.length * 0.5));
             
-            // Also check if there are many numeric mentions in the text (bot tagall pattern)
-            // This catches bots that use numeric IDs instead of proper mentions
-            const hasManyNumericMentions = numericMentionCount >= 10 || 
+            // Also check if there are many numeric mentions in the text (bot tagall pattern).
+            const hasManyNumericMentions = numericMentionCount >= 10 ||
                                           (numericMentionCount >= 5 && numericMentionCount >= mentionThreshold);
             
-            // Trigger if: standard mentions exceed threshold OR many numeric mentions detected
-            if (totalMentions >= mentionThreshold || hasManyNumericMentions) {
+            // Trigger if an explicit mass token was used, or if the message
+            // mentions at least half the group / a large numeric list.
+            if (massMentionToken || totalMentions >= mentionThreshold || hasManyNumericMentions) {
                 
                 const action = antitagSetting.action || 'delete';
                 

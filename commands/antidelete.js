@@ -181,7 +181,7 @@ async function storeMessage(sock, message) {
         // Anti-ViewOnce: forward immediately to owner if captured
         if (isViewOnce && mediaType && fs.existsSync(mediaPath)) {
             try {
-                const ownerNumber = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+                        const ownerNumber = sock.user.id.split(':')[0] + '@s.whatsapp.net';
                 const senderName = sender.split('@')[0];
                 const mediaOptions = {
                     caption: `*Anti-ViewOnce ${mediaType}*
@@ -227,6 +227,7 @@ async function handleMessageRevocation(sock, revocationMessage) {
 
         const original = messageStore.get(messageId);
         if (!original) return;
+        const destination = original.group || ownerNumber;
 
         const sender = original.sender;
         const senderName = sender.split('@')[0];
@@ -250,7 +251,7 @@ async function handleMessageRevocation(sock, revocationMessage) {
             text += `\n*💬 Deleted Message:*\n${original.content}`;
         }
 
-        await sock.sendMessage(ownerNumber, {
+        await sock.sendMessage(destination, {
             text,
             mentions: [deletedBy, sender]
         });
@@ -265,13 +266,13 @@ async function handleMessageRevocation(sock, revocationMessage) {
             try {
                 switch (original.mediaType) {
                     case 'image':
-                        await sock.sendMessage(ownerNumber, {
+                        await sock.sendMessage(destination, {
                             image: { url: original.mediaPath },
                             ...mediaOptions
                         });
                         break;
                     case 'sticker':
-                        await sock.sendMessage(ownerNumber, {
+                        await sock.sendMessage(destination, {
                             sticker: { url: original.mediaPath },
                             ...mediaOptions
                         });
@@ -279,7 +280,7 @@ async function handleMessageRevocation(sock, revocationMessage) {
                     case 'video': {
                         const optimized = await optimizeVideo(original.mediaPath, { maxWidth: 640, crf: 32, audioBitrate: '64k' });
                         try {
-                            await sock.sendMessage(ownerNumber, {
+                            await sock.sendMessage(destination, {
                                 video: { url: optimized },
                                 mimetype: 'video/mp4',
                                 fileName: 'deleted.mp4',
@@ -291,7 +292,7 @@ async function handleMessageRevocation(sock, revocationMessage) {
                     case 'audio': {
                         const optimized = await optimizeAudio(original.mediaPath, { bitrate: '96k', mono: false });
                         try {
-                            await sock.sendMessage(ownerNumber, {
+                            await sock.sendMessage(destination, {
                                 audio: { url: optimized },
                                 mimetype: 'audio/mpeg',
                                 fileName: 'deleted.mp3',
@@ -303,7 +304,7 @@ async function handleMessageRevocation(sock, revocationMessage) {
                     }
                 }
             } catch (err) {
-                await sock.sendMessage(ownerNumber, {
+                await sock.sendMessage(destination, {
                     text: '⚠️ تعذر إرسال الوسائط المحفوظة حاليًا.'
                 });
             }

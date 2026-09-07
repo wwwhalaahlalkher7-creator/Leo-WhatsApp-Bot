@@ -8,6 +8,7 @@ const { promisify } = require('util');
 const execFileAsync = promisify(execFile);
 const { t } = require('../lib/i18n');
 const fileType = require('file-type');
+const cheerio = require('cheerio');
 
 const API_BASE = 'https://bk9.fun';
 const MAX_RESULTS = 5;
@@ -66,7 +67,15 @@ function isCancel(args) { return /^(cancel|الغاء|إلغاء)$/i.test(String
 function isConfirm(args) { return /^(confirm|yes|نعم|موافق|تحميل)$/i.test(String(args?.join(' ') || '').trim()); }
 
 async function resolveDownloadUrl(result) {
-  if (isHttpUrl(result.directUrl)) return result.directUrl;
+  if (isHttpUrl(result.directUrl) && !/apkpure\.net/i.test(result.directUrl)) return result.directUrl;
+  if (isHttpUrl(result.directUrl) && /apkpure\.net/i.test(result.directUrl)) {
+    const page = await axios.get(result.directUrl, { timeout: 25_000, headers: { 'User-Agent': 'Mozilla/5.0' } });
+    const $ = cheerio.load(page.data || '');
+    const links = $('a').map((_, el) => $(el).attr('href') || '').get();
+    const candidate = links.find(h => /\.(?:apk|xapk)(?:$|[?#])/i.test(h)) || links.find(h => /download/i.test(h) && /^https?:\/\//i.test(h));
+    if (candidate) return candidate.startsWith('http') ? candidate : new URL(candidate, result.directUrl).href;
+    throw new Error('APKPure download link not found');
+  }
   if (!result.id) return null;
   const response = await axios.get(`${API_BASE}/download/apk`, { params: { id: result.id }, timeout: 30_000 });
   const data = response.data;
@@ -169,6 +178,50 @@ async function downloadAndSend(sock, chatId, message, result) {
   }
 }
 
+
+async function searchApkPure(query) {
+  const url = `https://apkpure.net/search?q=${encodeURIComponent(query)}`;
+  const res = await axios.get(url, { timeout: 25_000, headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36', 'Accept-Language': 'ar,en;q=0.8' } });
+  const $ = cheerio.load(res.data || '');
+  const seen = new Set();
+  const results = [];
+  $('a').each((_, el) => {
+    const href = String($(el).attr('href') || '');
+    if (!/^\/[^/]+\/com\.[^/]+(?:\/download)?$/i.test(href) && !/^\/[^/]+\/[^/]+\/download$/i.test(href)) return;
+    const absolute = href.startsWith('http') ? href : `https://apkpure.net${href}`;
+    const key = absolute.replace(/\/$/, '');
+    if (seen.has(key)) return;
+    const name = textValue($(el).find('.p1, .name, .title').first().text(), $(el).text()).replace(/\s+/g, ' ').trim();
+    if (!name || name.length < 2) return;
+    seen.add(key);
+    const match = key.match(/\/([^/]+)\/([^/]+)\/download$/i) || key.match(/\/([^/]+)\/(com\.[^/]+)$/i);
+    const packageId = match?.[2] || '';
+    results.push({ index: results.length + 1, id: packageId, name: name.slice(0, 100), source: 'APKPure', version: 'غير معروف', size: 'غير معروف', image: '', directUrl: key });
+  });
+  return results.slice(0, MAX_RESULTS);
+}
+
+async function enrichApkPureResult(result) {
+  if (!result?.directUrl) return result;
+  try {
+    const res = await axios.get(result.directUrl, { timeout: 20_000, headers: { 'User-Agent': 'Mozilla/5.0' } });
+    const $ = cheerio.load(res.data || '');
+    const text = $('body').text().replace(/\s+/g, ' ');
+    const version = text.match(/(?:Latest Version|أحدث إصدار|Version|الإصدار)\s*([0-9]+(?:\.[0-9]+){1,4})/i)?.[1];
+    const size = text.match(/([0-9]+(?:\.[0-9]+)?)\s*(MB|GB)/i)?.[0];
+    const canonical = $('link[rel="canonical"]').attr('href');
+    return { ...result, version: version || result.version, size: size || result.size, directUrl: canonical || result.directUrl };
+  } catch { return result; }
+}
+
+async function searchFdroid(query) {
+  try {
+    const res = await axios.get('https://search.f-droid.org/api/search_apps', { params: { q: query }, timeout: 15_000, headers: { 'User-Agent': 'LeoBot/1.37.6' } });
+    const list = Array.isArray(res.data?.apps) ? res.data.apps : (Array.isArray(res.data) ? res.data : []);
+    return list.slice(0, MAX_RESULTS).map((item, i) => ({ index: i + 1, id: item.package_name || item.packageName || '', name: item.name || item.title || 'Unknown App', source: 'F-Droid', version: item.version || 'غير معروف', size: item.size || 'غير معروف', image: item.icon || '', directUrl: item.download_url || item.apk_url || item.url || '' }));
+  } catch { return []; }
+}
+
 async function apkCommand(sock, chatId, message, args, context = {}) {
   const input = String(args?.join(' ') || '').trim();
   const key = sessionKey(chatId, context);
@@ -231,9 +284,25 @@ async function apkCommand(sock, chatId, message, args, context = {}) {
 
   try {
     await sock.sendMessage(chatId, { text: t('commands.apk.searching', '🔍 جاري البحث عن التطبيقات...') }, { quoted: message });
-    const search = await axios.get(`${API_BASE}/search/apk`, { params: { q: input }, timeout: 30_000 });
-    const raw = extractResults(search.data);
-    const results = raw.slice(0, MAX_RESULTS).map(normalizeResult).filter(r => r.name);
+    let results = [];
+    try {
+      const search = await axios.get(`${API_BASE}/search/apk`, { params: { q: input }, timeout: 15_000 });
+      const raw = extractResults(search.data);
+      results = raw.slice(0, MAX_RESULTS).map(normalizeResult).filter(r => r.name);
+    } catch (bk9Error) {
+      console.warn('[APK] BK9 search unavailable:', bk9Error?.message || bk9Error);
+    }
+    if (!results.length) {
+      try {
+        results = await searchApkPure(input);
+        if (results.length) {
+          results = await Promise.all(results.map(enrichApkPureResult));
+        }
+      } catch (apkPureError) {
+        console.warn('[APK] APKPure search unavailable:', apkPureError?.message || apkPureError);
+      }
+    }
+    if (!results.length) results = await searchFdroid(input);
     if (!results.length) return sock.sendMessage(chatId, { text: t('commands.apk.notFound', '', { query: input }) }, { quoted: message });
     sessions.set(key, { query: input, results, expiresAt: Date.now() + SESSION_TTL_MS, selected: null });
     await sendSearchResults(sock, chatId, message, results);

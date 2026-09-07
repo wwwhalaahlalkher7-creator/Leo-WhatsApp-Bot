@@ -76,7 +76,9 @@ async function handleMessages(sock, messageUpdate, printLog) {
         const senderId = message.key.participant || message.key.remoteJid;
         const senderIdAlt = message.key.participantAlt || message.key.remoteJidAlt || null;
         const ownerIdentityCandidates = [senderId, senderIdAlt].filter(Boolean);
-        const isGroup = isJidGroup(chatId) || Boolean(message.key.participant && message.key.remoteJid !== message.key.participant);
+        const remoteJid = String(chatId || '');
+        const remoteJidAlt = String(message.key.remoteJidAlt || '');
+        const isGroup = isJidGroup(chatId) || /@g\.us$/i.test(remoteJid) || /@g\.us$/i.test(remoteJidAlt) || Boolean(message.key.participant && message.key.remoteJid !== message.key.participant);
         const senderIsSudo = await isSudo(senderId) || (senderIdAlt ? await isSudo(senderIdAlt) : false);
         const senderIsOwnerOrSudo = await isOwnerOrSudo(senderId, sock, chatId, senderIdAlt);
         // Private chats are intentionally owner-only. Sudo users retain their
@@ -99,6 +101,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
             const key = match[1].replace(/ـ/g, '');
             const tail = match[2] || '';
             if (key === 'سجل' && /^\s+المسابقة\s*$/i.test(tail)) return '.contest-history';
+            if (key === 'مراقبة' && /^\s+البنك\s*$/i.test(tail)) return '.monitor بنك';
             if (false) {
                 value = value;
             } else if (key === 'تشغيل' && /^\s+البوت(?:\s|$)/i.test(tail)) {
@@ -346,7 +349,14 @@ async function handleMessages(sock, messageUpdate, printLog) {
 
 
     } catch (error) {
-        await handleCommandError({ sock, chatId: errorChatId, message: errorMessage, error, scope: 'message-handler', userMessage: errorUserMessage });
+        // Ordinary messages, reactions and unrelated WhatsApp events must never
+        // receive the command-failure message. Only report a user-facing error
+        // when the incoming payload was actually a command.
+        if (String(errorUserMessage || '').startsWith('.')) {
+            await handleCommandError({ sock, chatId: errorChatId, message: errorMessage, error, scope: 'message-handler', userMessage: errorUserMessage });
+        } else {
+            console.error('[message-handler] Ignored non-command event error:', error?.message || error);
+        }
     }
 }
 

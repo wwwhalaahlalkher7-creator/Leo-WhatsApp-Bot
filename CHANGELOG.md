@@ -1,3 +1,15 @@
+## v1.37.6-review-2 — owner decisions and runtime hardening
+
+- Locked `.رفع الحظر`, `.سكرين`, and `.معلومات المجموعة` after explicit owner approval.
+- Hardened `.منع التاق` detection for mass-mention tokens and large mention lists.
+- `.قول` / `.قولي`: removed provider-dependent voice selection so male/female selection stays tied to the command across languages.
+- `.كلمات`: kept Lyrics.ovh first and added LRCLIB fallback for Arabic/coverage gaps.
+- `.منع الحذف`: group deletions are now reported back to the originating group; private deletions remain owner-only.
+- Group-management dispatch now carries the real `isGroup` context into handlers, fixing false private-chat detection inside groups.
+- `.مراقبة البنك` now routes explicitly to the bank-monitor area instead of the general dashboard.
+- `.تطبيق`: added BK9 → APKPure → F-Droid search fallback chain and safer result handling.
+- Message-handler errors from ordinary messages/reactions no longer produce the generic command failure response.
+
 # LeoBot v1.37.6 — Owner Command Lock Expansion
 
 - توسيع سجل الأوامر المقفلة باعتماد المالك إلى 32 أمرًا.

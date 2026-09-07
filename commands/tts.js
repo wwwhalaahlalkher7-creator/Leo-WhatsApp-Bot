@@ -3,7 +3,6 @@ const gTTS = require('gtts');
 const fs = require('fs');
 const path = require('path');
 const { optimizeAudio, cleanup } = require('../lib/media-optimizer');
-const capabilities = require('../systems/ai/capabilities');
 
 let EdgeTTS = null;
 try {
@@ -192,28 +191,11 @@ async function ttsCommand(sock, chatId, rawText, message, options = {}) {
 
   const filePath = path.join(__dirname, '..', 'assets', `tts-${Date.now()}-${Math.random().toString(16).slice(2)}.mp3`);
   try {
-    // Arabic deliberately uses the local neural voice path so `.قول` is male
-    // and `.قولي` is female. Other languages keep the AI/OmniRoute path first.
-    let omniUsed = false;
-    if (lang !== 'ar' && capabilities.has('speechSynthesis')) {
-      try {
-        const audio = await capabilities.speechSynthesis(text, { lang, gender });
-        if (Buffer.isBuffer(audio) && audio.length >= 1000) {
-          await fs.promises.writeFile(filePath, audio);
-          omniUsed = true;
-        }
-      } catch (omniError) {
-        console.warn('[TTS] OmniRoute unavailable, using local language fallback:', omniError?.message || omniError);
-      }
-    }
-    if (!omniUsed) {
-      try {
-        await saveWithEdgeTTS(text, filePath, lang, gender);
-      } catch (edgeError) {
-        console.warn('[TTS] Edge TTS unavailable, using gTTS fallback:', edgeError?.message || edgeError);
-        await saveWithGoogle(text, filePath, lang);
-      }
-    }
+    // Voice identity is part of the public command contract: `.قول` is male
+    // and `.قولي` is female regardless of the detected language. Do not route
+    // through an AI speech provider that may choose a different voice.
+    if (!EdgeTTS) throw new Error('Edge TTS is required to preserve male/female voice selection.');
+    await saveWithEdgeTTS(text, filePath, lang, gender);
     const optimized = await optimizeAudio(filePath, { bitrate: '64k', mono: true });
     const stat = await fs.promises.stat(optimized);
     if (stat.size < 1000) throw new Error('ملف الصوت الناتج فارغ أو غير صالح.');

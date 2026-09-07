@@ -51,7 +51,7 @@ async function monitorCommand(sock, chatId, message, args = []) {
   const normalizedSub = sub.replace(/^ال/, '');
 
   // Bank administration is now a sub-area of the owner monitoring dashboard.
-  if (['بنك', 'bank', 'bank-manager', 'bankadmin'].includes(sub)) {
+  if (['بنك', 'البنك', 'bank', 'bank-manager', 'bankadmin'].includes(sub)) {
     return bankManagerCommand(sock, chatId, senderId, message, args.slice(1));
   }
 
