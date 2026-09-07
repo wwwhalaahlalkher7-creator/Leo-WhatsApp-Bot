@@ -392,3 +392,10 @@
 - Quality selection is bound to the exact menu message and the requesting user, expires after 10 minutes, and does not consume ordinary standalone numeric messages.
 - Added experimental `.سنابتيوب` as a separate public command for A/B testing. Its primary path uses a single universal downloader strategy first, with the existing universal social fallback only when the experimental engine cannot resolve the URL.
 - Both paths reuse the existing WhatsApp-compatible media optimizer so the experiment compares downloader/extraction behavior rather than incompatible output files.
+
+## 1.37.6 — SnapTube yt-dlp engine experiment
+- Replaced the previous `.سنابتيوب` AllDL experiment with a real yt-dlp-based extractor.
+- Added yt-dlp runtime installation through `requirements.txt`; FFmpeg was already present in the Railway Docker image.
+- `.سنابتيوب` now probes real formats, shows only actual video heights, estimates sizes from extractor metadata when available, and downloads the selected format through yt-dlp.
+- Audio is extracted to MP3 and images are normalized before WhatsApp delivery.
+- The experiment remains separate from `.تحميل` and is not an owner-locked command.
