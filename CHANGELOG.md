@@ -367,3 +367,28 @@
 - `.تطبيق`: search results are ranked by relevance across multiple sources; Arabic common app names are normalized; APKCombo download flow now handles its current check-in/variant flow; maximum package size raised to 2 GB.
 - `.تحميل` / `.تنزيل`: added AllDL as another universal provider/fallback for YouTube, TikTok, Instagram, Facebook and additional public social links; direct media cap raised to 2 GB.
 - `.منع الحذف`: removed the phone-number line from the deletion report; the bot itself remains the only protected sender from anti-delete reports.
+
+## v1.37.6 — logo behavior correction (2026-09-07)
+- `.لوجو`: removed Arabic text rendering completely; the command now uses the original Ephoto360 template directly.
+- Arabic input is rejected explicitly instead of producing a different/unrelated design.
+- Help/card text now clearly states that Arabic is not supported and gives the requested example `.لوجو ناروتو Leo`.
+
+## v1.37.6 — owner follow-up fixes (2026-09-07)
+- `.لوجو`: Arabic text rendering support removed completely. The command now requires English text and the command card explicitly states that Arabic is unavailable. Example: `.لوجو ناروتو Leo`.
+- `.تطبيق`: fixed the current APKPure download flow so it resolves the real `d.apkpure.net` APK/XAPK file instead of returning the HTML download page.
+- `.منع الحذف`: album images are now detected through WhatsApp's album association metadata, queued briefly, reported once, then recovered as a single native WhatsApp album. Single-image deletions keep the previous behavior.
+
+
+## v1.37.6 — media downloader reliability follow-up (2026-09-07)
+- `.تحميل` / `.تنزيل`: every video/audio/image result is normalized before WhatsApp delivery instead of trusting the provider's original container/codec. Videos are converted to H.264/AAC MP4 at up to 720p, audio to MP3, and images to JPEG with a size/dimension cap.
+- Provider fallback now verifies that returned CDN links are actually reachable before accepting a provider; stale/HTML/error links no longer stop the fallback chain.
+- X/Twitter now tries ReelGrab first so image/carousel results can be preserved, then AllDL and public-page metadata.
+- YouTube gained a local `@distube/ytdl-core` fallback after remote providers.
+- Added universal routing/fallback coverage for Reddit, Pinterest, Threads, Snapchat, CapCut, Douyin, SnackVideo/Kwai and SoundCloud; Pinterest uses ReelGrab/OG fallback and Threads uses public page metadata when media is exposed.
+- AllDL quality selection now prefers a compatible video at or below 720p when quality variants are supplied, reducing oversized WhatsApp deliveries.
+
+## v1.37.6 — downloader A/B experiment (2026-09-07)
+- `.تحميل` now inspects the media before delivery: images and audio are sent immediately through smart normalization; videos open a reply-based quality menu with available resolution and file-size information when the provider exposes it.
+- Quality selection is bound to the exact menu message and the requesting user, expires after 10 minutes, and does not consume ordinary standalone numeric messages.
+- Added experimental `.سنابتيوب` as a separate public command for A/B testing. Its primary path uses a single universal downloader strategy first, with the existing universal social fallback only when the experimental engine cannot resolve the URL.
+- Both paths reuse the existing WhatsApp-compatible media optimizer so the experiment compares downloader/extraction behavior rather than incompatible output files.

@@ -132,6 +132,37 @@ async function resolveApkComboDownload(pageUrl) {
   throw new Error('APKCombo direct download link not found');
 }
 
+async function resolveApkPureDownload(pageUrl) {
+  const page = await axios.get(pageUrl, {
+    timeout: 30_000,
+    maxRedirects: 5,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36',
+      'Accept-Language': 'ar,en;q=0.8',
+      Referer: pageUrl
+    }
+  });
+  const $ = cheerio.load(page.data || '');
+  const hrefs = $('a[href]').map((_, el) => String($(el).attr('href') || '').trim()).get();
+
+  // APKPure currently exposes the actual file through d.apkpure.net.
+  // Prefer that over the HTML download page so LeoBot sends the real APK/XAPK.
+  const directFile = hrefs.find(h => {
+    try {
+      const absolute = h.startsWith('http') ? h : new URL(h, pageUrl).href;
+      const host = new URL(absolute).hostname.toLowerCase();
+      return host === 'd.apkpure.net' || host.endsWith('.d.apkpure.net');
+    } catch { return false; }
+  });
+  if (directFile) return directFile.startsWith('http') ? directFile : new URL(directFile, pageUrl).href;
+
+  // Some APKPure pages expose the file as an APK/XAPK/APKS URL directly.
+  const byExtension = hrefs.find(h => /\.(?:apk|xapk|apks)(?:$|[?#])/i.test(h));
+  if (byExtension) return byExtension.startsWith('http') ? byExtension : new URL(byExtension, pageUrl).href;
+
+  throw new Error('APKPure direct download link not found');
+}
+
 async function resolveDownloadUrl(result) {
   if (!isHttpUrl(result.directUrl)) {
     if (!result.id) return null;
@@ -141,12 +172,17 @@ async function resolveDownloadUrl(result) {
   }
 
   const direct = result.directUrl;
-  const host = new URL(direct).hostname.toLowerCase();
-  if (/(?:^|\.)apkcombo\.com$/i.test(host) && /\/download\//i.test(new URL(direct).pathname)) {
+  const parsedDirect = new URL(direct);
+  const host = parsedDirect.hostname.toLowerCase();
+  if (/(?:^|\.)apkcombo\.com$/i.test(host) && /\/download\//i.test(parsedDirect.pathname)) {
     return resolveApkComboDownload(direct);
   }
+  if (/(?:^|\.)d\.apkpure\.net$/i.test(host)) return direct;
+  if (/(?:^|\.)apkpure\.net$/i.test(host)) {
+    return resolveApkPureDownload(direct);
+  }
 
-  const isStorePage = /(?:apkpure\.net)$/i.test(host) || /\.apkcombo\.com$/i.test(host);
+  const isStorePage = /\.apkcombo\.com$/i.test(host);
   if (!isStorePage) return direct;
 
   const page = await axios.get(direct, {

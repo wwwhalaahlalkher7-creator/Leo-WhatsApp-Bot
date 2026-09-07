@@ -8,6 +8,7 @@ const { handleHelpReply } = require('../commands/help');
 const { handlePdfReply, handlePdfImageCollection } = require('../commands/pdf');
 const { handleAnimeReply } = require('../commands/anime');
 const { handleNewsReply } = require('../commands/news');
+const { handleMediaQualityReply } = require('../commands/media-download');
 const jsonStore = require('../lib/storage');
 const { handleCommandError } = require('../lib/errors/handler');
 const { createLocalizedSock } = require('../lib/localized-sock');
@@ -248,8 +249,13 @@ async function handleMessages(sock, messageUpdate, printLog) {
             if (pdfReplyHandled) return;
         }
 
-        // Help navigation replies must be checked before other numeric moves.
+        // Media quality replies must be checked before other numeric moves.
+        // A number is accepted only when it replies to the exact quality menu.
         if (/^[0-9٠-٩۰-۹]{1,2}$/.test(userMessage)) {
+            const handledMediaQuality = await handleMediaQualityReply(sock, chatId, message, senderId, userMessage);
+            if (handledMediaQuality) return;
+
+            // Help navigation replies must be checked before other numeric moves.
             const handledHelpReply = await handleHelpReply(sock, chatId, message, userMessage);
             if (handledHelpReply) return;
             const handledAnimeReply = await handleAnimeReply(sock, chatId, message, userMessage, senderId);

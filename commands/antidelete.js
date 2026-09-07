@@ -7,6 +7,8 @@ const dataStore = require('../lib/storage');
 const { optimizeAudio, optimizeVideo, cleanup } = require('../lib/media-optimizer');
 
 const messageStore = new Map();
+const deletedAlbumBatches = new Map();
+const DELETED_ALBUM_BATCH_DELAY_MS = 900;
 const CONFIG_PATH = 'antidelete.json';
 const TEMP_MEDIA_DIR = path.join(__dirname, '../tmp');
 
@@ -175,12 +177,14 @@ async function storeMessage(sock, message) {
             await writeFile(mediaPath, buffer);
         }
 
+        const albumParentKey = message.message?.messageContextInfo?.messageAssociation?.parentMessageKey || null;
         messageStore.set(messageId, {
             content,
             mediaType,
             mediaPath,
             sender,
             group: message.key.remoteJid.endsWith('@g.us') ? message.key.remoteJid : null,
+            albumParentKey,
             timestamp: new Date().toISOString()
         });
 
@@ -216,6 +220,141 @@ From: @${senderName}`,
 
     } catch (err) {
         console.error('storeMessage error:', err);
+    }
+}
+
+async function sendRecoveredMedia(sock, destination, original, senderName) {
+    if (!original.mediaType || !original.mediaPath || !fs.existsSync(original.mediaPath)) return;
+
+    const mediaOptions = {
+        caption: `*الوسائط المحذوفة (${original.mediaType})*\nمن: @${senderName}`,
+        mentions: [original.sender]
+    };
+
+    try {
+        switch (original.mediaType) {
+            case 'image':
+                await sock.sendMessage(destination, { image: { url: original.mediaPath }, ...mediaOptions });
+                break;
+            case 'sticker':
+                await sock.sendMessage(destination, { sticker: { url: original.mediaPath }, ...mediaOptions });
+                break;
+            case 'video': {
+                const optimized = await optimizeVideo(original.mediaPath, { maxWidth: 640, crf: 32, audioBitrate: '64k' });
+                try {
+                    await sock.sendMessage(destination, {
+                        video: { url: optimized },
+                        mimetype: 'video/mp4',
+                        fileName: 'deleted.mp4',
+                        ...mediaOptions
+                    });
+                } finally { cleanup(optimized); }
+                break;
+            }
+            case 'audio': {
+                const optimized = await optimizeAudio(original.mediaPath, { bitrate: '96k', mono: false });
+                try {
+                    await sock.sendMessage(destination, {
+                        audio: { url: optimized },
+                        mimetype: 'audio/mpeg',
+                        fileName: 'deleted.mp3',
+                        ptt: false,
+                        ...mediaOptions
+                    });
+                } finally { cleanup(optimized); }
+                break;
+            }
+        }
+    } catch (err) {
+        await sock.sendMessage(destination, { text: '⚠️ تعذر إرسال الوسائط المحفوظة حاليًا.' }).catch(() => {});
+    } finally {
+        try { fs.unlinkSync(original.mediaPath); } catch {}
+    }
+}
+
+function queueDeletedAlbumImage(sock, item) {
+    const albumKey = JSON.stringify(item.original.albumParentKey);
+    let batch = deletedAlbumBatches.get(albumKey);
+    if (!batch) {
+        batch = {
+            destination: item.destination,
+            sender: item.sender,
+            senderName: item.senderName,
+            text: item.text,
+            deletedBy: item.deletedBy,
+            items: new Map(),
+            timer: null
+        };
+        deletedAlbumBatches.set(albumKey, batch);
+    }
+
+    batch.items.set(item.messageId, item.original);
+    if (batch.timer) clearTimeout(batch.timer);
+    batch.timer = setTimeout(() => flushDeletedAlbumBatch(sock, albumKey).catch(err => {
+        console.error('[ANTIDELETE ALBUM]', err);
+    }), DELETED_ALBUM_BATCH_DELAY_MS);
+}
+
+async function flushDeletedAlbumBatch(sock, albumKey) {
+    const batch = deletedAlbumBatches.get(albumKey);
+    if (!batch) return;
+    deletedAlbumBatches.delete(albumKey);
+
+    const items = [...batch.items.values()]
+        .filter(item => item.mediaType === 'image' && item.mediaPath && fs.existsSync(item.mediaPath));
+    if (!items.length) return;
+
+    // If only one image was deleted, keep the normal single-image behavior.
+    if (items.length === 1) {
+        const item = items[0];
+        await sendRecoveredMedia(sock, batch.destination, item, batch.senderName);
+        messageStore.forEach((value, key) => {
+            if (value === item) messageStore.delete(key);
+        });
+        return;
+    }
+
+    // Report first, then send the recovered images as one native WhatsApp album.
+    await sock.sendMessage(batch.destination, {
+        text: batch.text,
+        mentions: [batch.deletedBy, batch.sender]
+    });
+
+    let albumParent = null;
+    try {
+        // Baileys v7 supports albumMessage through an album parent message plus
+        // child media messages associated with albumParentKey.
+        const parent = await sock.sendMessage(batch.destination, {
+            album: { expectedImageCount: items.length, expectedVideoCount: 0 }
+        });
+        albumParent = parent?.key || null;
+    } catch (error) {
+        console.warn('[ANTIDELETE ALBUM] Could not create album parent:', error.message);
+    }
+
+    if (!albumParent) {
+        for (const item of items) {
+            await sendRecoveredMedia(sock, batch.destination, item, batch.senderName);
+        }
+    } else {
+        for (const item of items) {
+            try {
+                await sock.sendMessage(batch.destination, {
+                    image: { url: item.mediaPath },
+                    caption: `*الوسائط المحذوفة (صورة)*\nمن: @${batch.senderName}`,
+                    mentions: [batch.sender],
+                    albumParentKey: albumParent
+                });
+            } catch (error) {
+                await sock.sendMessage(batch.destination, { text: '⚠️ تعذر إرسال إحدى الصور المحفوظة.' }).catch(() => {});
+            } finally {
+                try { fs.unlinkSync(item.mediaPath); } catch {}
+            }
+        }
+    }
+
+    for (const [key, value] of messageStore.entries()) {
+        if (batch.items.has(key) || batch.items.get(key) === value) messageStore.delete(key);
     }
 }
 
@@ -256,72 +395,27 @@ async function handleMessageRevocation(sock, revocationMessage) {
             text += `\n*💬 الرسالة المحذوفة:*\n${original.content}`;
         }
 
+        // Album images: WhatsApp delivers album items as separate messages that
+        // share messageAssociation.parentMessageKey. Batch them briefly so the
+        // report is sent once and the recovered images appear as one WhatsApp album.
+        if (original.mediaType === 'image' && original.albumParentKey) {
+            queueDeletedAlbumImage(sock, {
+                messageId,
+                original,
+                destination,
+                sender,
+                senderName,
+                text,
+                deletedBy
+            });
+            return;
+        }
+
         await sock.sendMessage(destination, {
             text,
             mentions: [deletedBy, sender]
         });
-
-        // Media sending
-        if (original.mediaType && fs.existsSync(original.mediaPath)) {
-            const mediaOptions = {
-                caption: `*الوسائط المحذوفة (${original.mediaType})*\nمن: @${senderName}`,
-                mentions: [sender]
-            };
-
-            try {
-                switch (original.mediaType) {
-                    case 'image':
-                        await sock.sendMessage(destination, {
-                            image: { url: original.mediaPath },
-                            ...mediaOptions
-                        });
-                        break;
-                    case 'sticker':
-                        await sock.sendMessage(destination, {
-                            sticker: { url: original.mediaPath },
-                            ...mediaOptions
-                        });
-                        break;
-                    case 'video': {
-                        const optimized = await optimizeVideo(original.mediaPath, { maxWidth: 640, crf: 32, audioBitrate: '64k' });
-                        try {
-                            await sock.sendMessage(destination, {
-                                video: { url: optimized },
-                                mimetype: 'video/mp4',
-                                fileName: 'deleted.mp4',
-                                ...mediaOptions
-                            });
-                        } finally { cleanup(optimized); }
-                        break;
-                    }
-                    case 'audio': {
-                        const optimized = await optimizeAudio(original.mediaPath, { bitrate: '96k', mono: false });
-                        try {
-                            await sock.sendMessage(destination, {
-                                audio: { url: optimized },
-                                mimetype: 'audio/mpeg',
-                                fileName: 'deleted.mp3',
-                                ptt: false,
-                                ...mediaOptions
-                            });
-                        } finally { cleanup(optimized); }
-                        break;
-                    }
-                }
-            } catch (err) {
-                await sock.sendMessage(destination, {
-                    text: '⚠️ تعذر إرسال الوسائط المحفوظة حاليًا.'
-                });
-            }
-
-            // Cleanup
-            try {
-                fs.unlinkSync(original.mediaPath);
-            } catch (err) {
-                console.error('Media cleanup error:', err);
-            }
-        }
-
+        await sendRecoveredMedia(sock, destination, original, senderName);
         messageStore.delete(messageId);
 
     } catch (err) {
