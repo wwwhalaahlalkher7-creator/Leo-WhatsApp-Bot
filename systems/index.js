@@ -11,4 +11,6 @@ module.exports = {
   provider: require('./provider'),
   group: require('./group'),
   moderation: require('./moderation'),
+  jobs: require('./jobs'),
+  media: require('./media'),
 };

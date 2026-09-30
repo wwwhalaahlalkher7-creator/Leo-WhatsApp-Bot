@@ -9,6 +9,7 @@ const { SessionManager } = require('../systems/session');
 const { replyNumber } = require('../systems/interaction');
 const { t } = require('../lib/i18n');
 const { optimizeAudio, optimizeVideo, optimizeImage, cleanup } = require('../lib/media-optimizer');
+const jobs = require('../systems/jobs');
 
 const mediaSessions = new SessionManager({ defaultTtl: 10 * 60 * 1000 });
 
@@ -251,41 +252,61 @@ async function mediaDownloadCommand(sock, chatId, message, args, ctx = {}) {
   try {
     await sock.sendMessage(chatId, { text: t('download.generic.processing') }, { quoted: message });
 
-    // Direct media is handled immediately. There is no reason to ask for a
-    // quality when the URL itself points at a single image/audio file.
-    if (/\.(mp4|webm|mov|m4v|mp3|m4a|aac|ogg|jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(href)) {
-      return await sendDirectMedia(sock, chatId, message, href);
-    }
+    const queued = jobs.enqueue('media-download', async ({ signal }) => {
+      // Direct media is handled immediately. There is no reason to ask for a
+      // quality when the URL itself points at a single image/audio file.
+      if (/\.(mp4|webm|mov|m4v|mp3|m4a|aac|ogg|jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(href)) {
+        return await sendDirectMedia(sock, chatId, message, href);
+      }
 
-    // New behavior: identify the media first. Images/audio are downloaded
-    // immediately with smart normalization; videos get an interactive quality menu.
-    try {
-      const handled = await inspectDownload(sock, chatId, message, senderId, href, 'تحميل');
-      if (handled) return;
-    } catch (inspectError) {
-      console.warn('[MEDIA-DL] quality inspection failed, falling back to legacy provider routing:', inspectError?.message || inspectError);
-    }
+      // Identify media first. Images/audio are sent immediately; videos get
+      // an interactive quality menu. Provider fallback remains below.
+      try {
+        const handled = await inspectDownload(sock, chatId, message, senderId, href, 'تحميل');
+        if (handled) return true;
+      } catch (inspectError) {
+        console.warn('[MEDIA-DL] quality inspection failed, falling back to legacy provider routing:', inspectError?.message || inspectError);
+      }
 
-    let result;
-    if (/youtube\.com$|youtu\.be$/.test(host)) {
-      result = await youtubeVideo(href);
-    } else if (/tiktok\.com$/.test(host)) {
-      result = await tiktok(href);
-    } else if (/instagram\.com$|instagr\.am$/.test(host)) {
-      result = await instagram(href);
-    } else if (/facebook\.com$|fb\.watch$/.test(host)) {
-      result = await facebook(href);
-    } else if (/(^|\.)x\.com$|(^|\.)twitter\.com$/i.test(host)) {
-      result = await xTwitter(href);
-    } else if (/(^|\.)reddit\.com$|(^|\.)redd\.it$|(^|\.)pinterest\.com$|(^|\.)pin\.it$|(^|\.)threads\.net$|(^|\.)threads\.com$|(^|\.)snapchat\.com$|(^|\.)capcut\.com$|(^|\.)douyin\.com$|(^|\.)snackvideo\.com$|(^|\.)kwai\.com$|(^|\.)soundcloud\.com$/i.test(host)) {
-      result = await socialUniversal(href);
-    } else {
-      return await sendDirectMedia(sock, chatId, message, href);
+      if (signal.aborted) throw new Error('تم إلغاء مهمة التحميل.');
+
+      let result;
+      if (/youtube\.com$|youtu\.be$/.test(host)) {
+        result = await youtubeVideo(href);
+      } else if (/tiktok\.com$/.test(host)) {
+        result = await tiktok(href);
+      } else if (/instagram\.com$|instagr\.am$/.test(host)) {
+        result = await instagram(href);
+      } else if (/facebook\.com$|fb\.watch$/.test(host)) {
+        result = await facebook(href);
+      } else if (/(^|\.)x\.com$|(^|\.)twitter\.com$/i.test(host)) {
+        result = await xTwitter(href);
+      } else if (/(^|\.)reddit\.com$|(^|\.)redd\.it$|(^|\.)pinterest\.com$|(^|\.)pin\.it$|(^|\.)threads\.net$|(^|\.)threads\.com$|(^|\.)snapchat\.com$|(^|\.)capcut\.com$|(^|\.)douyin\.com$|(^|\.)snackvideo\.com$|(^|\.)kwai\.com$|(^|\.)soundcloud\.com$/i.test(host)) {
+        result = await socialUniversal(href);
+      } else {
+        return await sendDirectMedia(sock, chatId, message, href);
+      }
+      await sendResult(sock, chatId, message, result, href);
+      return { provider: result?.provider || null };
+    }, {
+      ownerId: senderId,
+      chatId,
+      meta: { href, host },
+      concurrency: 2,
+      maxQueue: 12,
+      maxRuntimeMs: 10 * 60 * 1000,
+    });
+
+    const completed = await jobs.wait(queued.id, { timeoutMs: 11 * 60 * 1000 });
+    if (completed.status !== 'completed') {
+      throw new Error(completed.error || 'Media job did not complete');
     }
-    await sendResult(sock, chatId, message, result, href);
   } catch (error) {
     console.error('[MEDIA-DL]', error);
-    await sock.sendMessage(chatId, { text: t('download.generic.failed') }, { quoted: message });
+    const messageText = error?.code === 'JOB_QUEUE_FULL'
+      ? '⏳ قائمة التحميل ممتلئة حاليًا. انتظر قليلًا ثم أعد المحاولة.'
+      : t('download.generic.failed');
+    await sock.sendMessage(chatId, { text: messageText }, { quoted: message });
   }
 }
 

@@ -8,7 +8,7 @@
     "start:optimized": "node --max-old-space-size=512 --optimize-for-size --gc-interval=100 index.js",
     "install:panel": "npm install --legacy-peer-deps",
     "install:force": "npm install --force",
-    "test": "node scripts-syntax-check.js && node scripts-registry-audit.js && node scripts-help-registry-audit.js && node scripts-owner-lock-audit.js",
+    "test": "node scripts-syntax-check.js && node scripts-registry-audit.js && node scripts-help-registry-audit.js && node scripts-owner-lock-audit.js && node scripts-job-media-test.js",
     "test:providers": "node scripts-provider-check.js",
     "providers:health": "node scripts-provider-health.js",
     "providers:reset": "node -e \"require('./lib/providers/core/health').reset(); console.log('Provider circuit state reset')\"",
@@ -41,7 +41,8 @@
     "test:provider-retry": "node scripts-provider-retry-test.js",
     "test:command-observability": "node scripts-command-observability-test.js",
     "test:event-modules": "node scripts-event-modules-test.js",
-    "audit:owner-lock": "node scripts-owner-lock-audit.js"
+    "audit:owner-lock": "node scripts-owner-lock-audit.js",
+    "test:job-media": "node scripts-job-media-test.js"
   },
   "keywords": [
     "whatsapp-bot"

@@ -1,6 +1,6 @@
 ## Current release
 
-- Version: `v1.35.26`
+- Version: `v1.37.6`
 - Version source of truth: `package.json`
 - Configuration template: `.env.example`
 - Runtime secrets: `.env` only
@@ -51,3 +51,18 @@ npm run data:restore -- <backup-name>
 ```
 
 > القناة الرسمية غير مفعلة حاليًا ويمكن إضافتها مستقبلًا من الإعدادات.
+
+
+## Media job architecture
+
+Expensive media/download operations are scheduled through the lightweight in-process
+`systems/jobs` manager. It provides bounded concurrency, FIFO queueing, cancellation,
+runtime limits, lifecycle status, and stale-job cleanup without adding an external
+queue service.
+
+Provider retry/fallback remains inside the existing provider layer. The job manager
+does not duplicate provider logic.
+
+Video processing primitives live in `systems/media/video-pipeline.js` and are designed
+for bounded probing, clipping, and optimization. They can be used later by the bot's
+media-intelligence features without embedding a full desktop editor.

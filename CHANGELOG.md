@@ -1,3 +1,13 @@
+## v1.37.6-review-4 — media job pipeline and runtime hardening
+
+- Added bounded in-process job management for expensive media/download operations.
+- Added FIFO queueing, per-type concurrency limits, cancellation, runtime limits, status inspection, and stale-job cleanup.
+- Routed `.تحميل` and `.فيديو` work through bounded jobs while preserving the existing provider retry/fallback layer.
+- Added reusable video pipeline primitives for safe probing, bounded clip extraction, and optimization.
+- Added focused job/media regression tests and included them in `npm test`.
+- Synchronized README release version with `package.json`.
+- No external queue service or heavy video-editor dependency was added.
+
 ## v1.37.6-review-3 — latest owner review decisions
 
 - Approved/locked: `.منع الروابط`, `.منع التاق`, `.قول`, `.قولي`, `.كلمات`, `.وصف`, `.وصف المجموعة`, `.اسم`, `.اسم المجموعة`, `.صورة المجموعة`, `.مراقبة`.
